@@ -20,6 +20,9 @@ The current way implemented in the program to fuzz functions with multiple argum
 
 2. ### Implementation Based Harness Creation
 Using codeql, it is possible to use to generate a control flow graph that maps how the parameters in a function are initialized. Using that information, we can create a better harness. Another way is to look for implementations for the function that exist in the library and use that information to make an educated guess on an implmentation of the function as a harness. The problems I currently have with this are generating the control flow graphs with codeql.
+
+3. ### Parallelized fuzzing/False Positive Detection
+I can create a simple program that runs all the harnesses and picks up on any of the common false positives using ASAN. Also, I can create a new interface that runs all the harnesses at once and displays their statistics.
 ## Contribution/Bugs
 If you find any bugs with this program, please create an issue. I will try to come up with a fix. Also, if you have any ideas on any new features or how to implement performance upgrades or the current planned features, please create a pull request or an issue with the tag (contribution).
 ## PSA
