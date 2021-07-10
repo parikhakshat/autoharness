@@ -60,9 +60,9 @@ if (int(args.mode) == 0):
                 defined_functions["type_or_loc"].append(total_functions["type_or_loc"][index2])
     for i in range(len(defined_functions["function"])):
         if ".so" not in str(defined_functions["object"][i]):
-            elf = lief.parse(str(defined_functions["object"][i]))
+            elf = lief.parse(args.library + str(defined_functions["object"][i]))
             try:
-                addr = elf.get_function_address(args.library + str(defined_functions["function"][i]))
+                addr = elf.get_function_address(str(defined_functions["function"][i]))
             except: 
                 continue
             elf.add_exported_function(addr, str(defined_functions["function"][i]))
@@ -124,32 +124,33 @@ if (int(args.mode) == 0):
             else:
                env = os.environ.copy()
                subprocess.Popen("clang -g -fsanitize=address,undefined,fuzzer -L " + args.output + " -L " +args.library + " -l:" + str((shared_functions["object"][index3])) + " " + args.output + filename +".c -o " + args.output + filename, env=env, shell=True, stdout=DEVNULL, stderr=STDOUT)
-    for index4 in range(len(elf_functions["function"])):
-        header_section = ""
-        if not args.headers:
+    if (int(args.detection) == 1):
+        for index4 in range(len(elf_functions["function"])):
             header_section = ""
-        else: 
-            header_list = args.headers.split(",")
-            for x in header_list:
-                header_section+= "#include \"" + x + "\"\n\n"
-        main_section = "#include <stdlib.h>\n#include <dlfcn.h>\n\nvoid* library=NULL;\ntypedef " + str(elf_functions["type_or_loc"][index4]) + "(*" + str(elf_functions["function"][index4]) + "_t)(" + str(elf_functions["type"][index4]) + ");\n" + "void CloseLibrary()\n{\nif(library){\n\tdlclose(library);\n\tlibrary=NULL;\n}\n}\nint LoadLibrary(){\n\tlibrary = dlopen(\"" + args.library + str(elf_functions["object"][index4]) + "\",RTLD_LAZY);\n\tatexit(CloseLibrary);\n\treturn library != NULL;\n}\nint LLVMFuzzerTestOneInput(" + str(elf_functions["type"][index4]) + " Data, long Size) {\n\tLoadLibrary();\n\t" + str(elf_functions["function"][index4]) + "_t " + str(elf_functions["function"][index4]) + "_s = (" + str(elf_functions["function"][index4]) + "_t)dlsym(library,\"" + str(elf_functions["function"][index4]) + "\");\n\t" + str(elf_functions["function"][index4]) + "_s(Data);\n\treturn 0;\n}"
-        full_source = header_section + main_section
-        filename = "".join([c for c in str(elf_functions["function"][index4]) if c.isalpha() or c.isdigit() or c==' ']).rstrip()
-        f = open(args.output + filename +".c", "w")
-        f.write(full_source)
-        if args.flags is not None and int(args.debug) == 1:
-            env = os.environ.copy()
-            print("clang -g -fsanitize=address,undefined,fuzzer " + args.flags + " " + args.output + filename +".c -o " + args.output + filename, env=env, shell=True)
-            subprocess.Popen("clang -g -fsanitize=address,undefined,fuzzer " + args.flags + " " + args.output + filename +".c -o " + args.output + filename, env=env, shell=True)
-        elif args.flags is not None and int(args.debug) == 0:
-            env = os.environ.copy()
-            subprocess.Popen("clang -g -fsanitize=address,undefined,fuzzer " + args.flags + " " + args.output + filename +".c -o " + args.output + filename, env=env, shell=True, stdout=DEVNULL, stderr=STDOUT)
-        elif args.flags is None and int(args.debug) == 1:
-           env = os.environ.copy()
-           subprocess.Popen("clang -g -fsanitize=address,undefined,fuzzer " + args.output + filename +".c -o " + args.output + filename, env=env, shell=True)
-        else:
-           env = os.environ.copy()
-           subprocess.Popen("clang -g -fsanitize=address,undefined,fuzzer " + args.output + filename +".c -o " + args.output + filename, env=env, shell=True, stdout=DEVNULL, stderr=STDOUT)
+            if not args.headers:
+                    header_section = ""
+            else: 
+                header_list = args.headers.split(",")
+                for x in header_list:
+                    header_section+= "#include \"" + x + "\"\n\n"               
+            main_section = "#include <stdlib.h>\n#include <dlfcn.h>\n\nvoid* library=NULL;\ntypedef " + str(elf_functions["type_or_loc"][index4]) + "(*" + str(elf_functions["function"][index4]) + "_t)(" + str(elf_functions["type"][index4]) + ");\n" + "void CloseLibrary()\n{\nif(library){\n\tdlclose(library);\n\tlibrary=NULL;\n}\n}\nint LoadLibrary(){\n\tlibrary = dlopen(\"" + args.library + str(elf_functions["object"][index4]) + "\",RTLD_LAZY);\n\tatexit(CloseLibrary);\n\treturn library != NULL;\n}\nint LLVMFuzzerTestOneInput(" + str(elf_functions["type"][index4]) + " Data, long Size) {\n\tLoadLibrary();\n\t" + str(elf_functions["function"][index4]) + "_t " + str(elf_functions["function"][index4]) + "_s = (" + str(elf_functions["function"][index4]) + "_t)dlsym(library,\"" + str(elf_functions["function"][index4]) + "\");\n\t" + str(elf_functions["function"][index4]) + "_s(Data);\n\treturn 0;\n}"
+            full_source = header_section + main_section
+            filename = "".join([c for c in str(elf_functions["function"][index4]) if c.isalpha() or c.isdigit() or c==' ']).rstrip()
+            f = open(args.output + filename +".c", "w")
+            f.write(full_source)
+            if args.flags is not None and int(args.debug) == 1:
+                env = os.environ.copy()
+                print("clang -g -fsanitize=address,undefined,fuzzer " + args.flags + " " + args.output + filename +".c -o " + args.output + filename)
+                subprocess.Popen("clang -g -fsanitize=address,undefined,fuzzer " + args.flags + " " + args.output + filename +".c -o " + args.output + filename, env=env, shell=True)
+            elif args.flags is not None and int(args.debug) == 0:
+                env = os.environ.copy()
+                subprocess.Popen("clang -g -fsanitize=address,undefined,fuzzer " + args.flags + " " + args.output + filename +".c -o " + args.output + filename, env=env, shell=True, stdout=DEVNULL, stderr=STDOUT)
+            elif args.flags is None and int(args.debug) == 1:
+               env = os.environ.copy()
+               subprocess.Popen("clang -g -fsanitize=address,undefined,fuzzer " + args.output + filename +".c -o " + args.output + filename, env=env, shell=True)
+            else:
+               env = os.environ.copy()
+               subprocess.Popen("clang -g -fsanitize=address,undefined,fuzzer " + args.output + filename +".c -o " + args.output + filename, env=env, shell=True, stdout=DEVNULL, stderr=STDOUT) 
 elif (int(args.mode) == 1):
     shared_objects=[]
     func_objects=[]
@@ -290,6 +291,7 @@ elif (int(args.mode) == 1):
         if int(args.detection) == 0:
             if args.flags is not None and int(args.debug) == 1:
                 env = os.environ.copy()
+                print("clang++ -g -fsanitize=address,undefined,fuzzer " + args.flags + " -L " + args.output + " -L " +args.library + " -I" + os.path.dirname(shared_functions["type_or_loc"][index3]) + " -l:" + str((shared_functions["object"][index3])) + " " + args.output + filename +".cc -o " + args.output + filename)
                 subprocess.Popen("clang++ -g -fsanitize=address,undefined,fuzzer " + args.flags + " -L " + args.output + " -L " +args.library + " -I" + os.path.dirname(shared_functions["type_or_loc"][index3]) + " -l:" + str((shared_functions["object"][index3])) + " " + args.output + filename +".cc -o " + args.output + filename, env=env, shell=True)
             elif args.flags is not None and int(args.debug) == 0:
                 env = os.environ.copy()
@@ -303,7 +305,6 @@ elif (int(args.mode) == 1):
         else:
             if args.flags is not None and int(args.debug) == 1:
                 env = os.environ.copy()
-                print("clang++ -g -fsanitize=address,undefined,fuzzer " + args.flags + " -L " + args.output + " -L " +args.library + " -l:" + str((shared_functions["object"][index3])) + " " + args.output + filename +".cc -o " + args.output + filename)
                 subprocess.Popen("clang++ -g -fsanitize=address,undefined,fuzzer " + args.flags + " -L " + args.output + " -L " +args.library + " -l:" + str((shared_functions["object"][index3])) + " " + args.output + filename +".cc -o " + args.output + filename, env=env, shell=True)
             elif args.flags is not None and int(args.debug) == 0:
                 env = os.environ.copy()
@@ -314,9 +315,102 @@ elif (int(args.mode) == 1):
             else:
                env = os.environ.copy()
                subprocess.Popen("clang++ -g -fsanitize=address,undefined,fuzzer -L " + args.output + " -L " +args.library + " -l:" + str((shared_functions["object"][index3])) + " " + args.output + filename +".cc -o " + args.output + filename, env=env, shell=True, stdout=DEVNULL, stderr=STDOUT)
+    if (int(args.detection) == 1):
+        for index4 in range(len(elf_functions["function"])):
+            header_section = ""
+            if not args.headers:
+                    header_section += "#include <fuzzer/FuzzedDataProvider.h>\n#include <stddef.h>\n#include <stdint.h>\n#include <string.h>\n"            
+            else: 
+                header_list = args.headers.split(",")
+                for x in header_list:
+                    header_section += "#include <fuzzer/FuzzedDataProvider.h>\n#include <stddef.h>\n#include <stdint.h>\n#include <string.h>\n"
+                    header_section+= "#include \"" + x + "\"\n\n"
+            		
+            stub = ""
+            marker = 1
+            param = ""
+            header_args = ""
+            for ty in literal_eval(elf_functions["type"][index4]):
+                if ty.count('*') == 1:
+                    if "long" in ty or "int" in ty or "short" in ty and "long double" not in ty:  
+                       stub  += "auto data" + str(marker) + "= provider.ConsumeIntegral<" + ty.replace("*", "") + ">();\n" + ty.replace("*", "") + "*pointer"+ str(marker) + " = &data" + str(marker) + ";\n" 
+                       param += "pointer" + str(marker) + ", "
+                       header_args += ty + "pointer" + str(marker) + ", "
+                    elif "char" in ty or "string" in ty:
+                       stub  += "auto data" + str(marker) + "= provider.ConsumeIntegral<" + ty.replace("*", "") + ">();\n" + ty.replace("*", "") + "*pointer"+ str(marker) + " = &data" + str(marker) + ";\n"
+                       param += "pointer" + str(marker) + ", "
+                       header_args += ty + "pointer" + str(marker) + ", "
+                    elif "float" in ty or "double" in ty:
+                        stub  += "auto data" + str(marker) + "= provider.ConsumeFloatingPoint<" + ty.replace("*", "") +">();\n" + ty.replace("*", "") + "*pointer"+ str(marker) + " = &data" + str(marker) + ";\n"
+                        param += "pointer" + str(marker) + ", "
+                        header_args += ty + "pointer" + str(marker) + ", "
+                    elif "bool" in ty:
+                        stub  += "auto data" + str(marker) + "= provider.ConsumeBool();\n" + ty + "pointer"+ str(marker) + " = &data" + str(marker) + ";\n"
+                        param += "pointer" + str(marker) + ", "
+                        header_args += ty + "pointer" + str(marker) + ", "
+                    else: 
+                        continue    
+                elif ty.count('*') == 2:
+                    if "long" in ty or "int" in ty or "short" in ty and "long double" not in ty:  
+                       stub  += "auto data" + str(marker) + "= provider.ConsumeIntegral<" + ty.replace("*", "") + ">();\n" + ty.replace("*", "") + "*pointer"+ str(marker) + " = &data" + str(marker) + ";\n" + ty.replace("*", "") + "**doublepointer"+str(marker) + " = &pointer"+ str(marker) + ";\n"  
+                       param += "doublepointer" + str(marker) + ", "
+                       header_args += ty + "doublepointer" + str(marker) + ", "
+                    elif "char" in ty or "string" in ty:
+                       stub  += "auto data" + str(marker) + "= provider.ConsumeIntegral<" + ty.replace("*", "") + ">();\n" + ty.replace("*", "") + "*pointer"+ str(marker) + " = &data" + str(marker) + ";\n" + ty.replace("*", "") + "**doublepointer"+str(marker) + " = &pointer"+ str(marker) + ";\n" 
+                       param += "doublepointer" + str(marker) + ", "
+                       header_args += ty + "doublepointer" + str(marker) + ", "
+                    elif "float" in ty or "double" in ty:
+                        stub  += "auto data" + str(marker) + "= provider.ConsumeFloatingPoint<" + ty.replace("*", "") + ">();\n" + ty.replace("*", "") + "*pointer"+ str(marker) + " = &data" + str(marker) + ";\n" + ty.replace("*", "") + "**doublepointer"+str(marker) + " = &pointer"+ str(marker) + ";\n"  
+                        param += "doublepointer" + str(marker) + ", "
+                        header_args += ty + "doublepointer" + str(marker) + ", "
+                    elif "bool" in ty:
+                        stub  += "auto data" + str(marker) + "= provider.ConsumeBool();\n" + ty.replace("*", "") + "*pointer" + str(marker) + " = &data" + str(marker) + ";\n" + ty.replace("*", "") + "**doublepointer"+str(marker) + " = &pointer"+ str(marker) + ";\n"    
+                        param += "doublepointer" + str(marker) + ", "
+                        header_args += ty + "doublepointer" + str(marker) + ", "                    
+                    else: 
+                        continue
+                else:
+                    if "long" in ty or "int" in ty or "short" in ty and "long double" not in ty:  
+                       stub  += "auto data" + str(marker) + "= provider.ConsumeIntegral<" + ty +">();\n" 
+                       param += "data" + str(marker) + ", "
+                       header_args += ty + " data" + str(marker) + ", "
+                    elif "char" in ty or "string" in ty:
+                       stub  += "auto data" + str(marker) + "= provider.ConsumeIntegral<" + ty +">();\n"
+                       param += "data" + str(marker) + ", "
+                       header_args += ty + " data" + str(marker) + ", "
+                    elif "float" in ty or "double" in ty:
+                        stub  += "auto data" + str(marker) + "= provider.ConsumeFloatingPoint<" + ty +">();\n"
+                        param += "data" + str(marker) + ", "
+                        header_args += ty + " data" + str(marker) + ", "
+                    elif "bool" in ty:
+                        stub  += "auto data" + str(marker) + "= provider.ConsumeBool();\n"
+                        param += "data" + str(marker) + ", "
+                        header_args += ty + " data" + str(marker) + ", "
+                    else: 
+                        continue
+                marker+= 1
+            param = rreplace(param,', ','',1)
+            header_args = rreplace(header_args,', ','',1)
+            main_section = "#include <stdlib.h>\n#include <dlfcn.h>\n\nvoid* library=NULL;\ntypedef " + str(elf_functions["type_or_loc"][index4]) + "(*" + str(elf_functions["function"][index4]) + "_t)(" + header_args + + "void CloseLibrary()\n{\nif(library){\n\tdlclose(library);\n\tlibrary=NULL;\n}\n}\nint LoadLibrary(){\n\tlibrary = dlopen(\"" + args.library + str(elf_functions["object"][index4]) + "\",RTLD_LAZY);\n\tatexit(CloseLibrary);\n\treturn library != NULL;\n}\n);\nextern \"C\" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {\n\tFuzzedDataProvider provider(data, size);\n\t{\n\tLoadLibrary();\n\t" + stub + str(elf_functions["function"][index4]) + "_t " + str(elf_functions["function"][index4]) + "_s = (" + str(elf_functions["function"][index4]) + "_t)dlsym(library,\"" + str(elf_functions["function"][index4]) + "\");\n\t" + str(elf_functions["function"][index4]) + "_s("+ param +");\n\treturn 0;\n}" 
+            full_source = header_section + main_section
+            filename = "".join([c for c in str(elf_functions["function"][index3]) if c.isalpha() or c.isdigit() or c==' ']).rstrip()
+            f = open(args.output + filename +".cc", "w")
+            f.write(full_source)
+            if args.flags is not None and int(args.debug) == 1:
+                env = os.environ.copy()
+                print("clang++ -g -fsanitize=address,undefined,fuzzer " + args.flags + " " + args.output + filename +".cc -o " + args.output + filename)
+                subprocess.Popen("clang++ -g -fsanitize=address,undefined,fuzzer " + args.flags + " " + args.output + filename +".cc -o " + args.output + filename, env=env, shell=True)
+            elif args.flags is not None and int(args.debug) == 0:
+                env = os.environ.copy()
+                subprocess.Popen("clang++ -g -fsanitize=address,undefined,fuzzer " + args.flags + " " + args.output + filename +".c c-o " + args.output + filename, env=env, shell=True, stdout=DEVNULL, stderr=STDOUT)
+            elif args.flags is None and int(args.debug) == 1:
+               env = os.environ.copy()
+               subprocess.Popen("clang++ -g -fsanitize=address,undefined,fuzzer " + args.output + filename +".cc -o " + args.output + filename, env=env, shell=True)
+            else:
+               env = os.environ.copy()
+               subprocess.Popen("clang++ -g -fsanitize=address,undefined,fuzzer " + args.output + filename +".cc -o " + args.output + filename, env=env, shell=True, stdout=DEVNULL, stderr=STDOUT) 
 else:
     print("Invalid Mode")
 if int(args.debug) == 0:
         subprocess.Popen("rm *.c", env=env, shell=True)
         subprocess.Popen("rm *.cc", env=env, shell=True)
-    
