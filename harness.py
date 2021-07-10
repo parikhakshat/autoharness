@@ -405,6 +405,3 @@ elif (int(args.mode) == 1):
                subprocess.Popen("clang++ -g -fsanitize=address,undefined,fuzzer " + args.output + filename +".cc -o " + args.output + filename, env=env, shell=True, stdout=DEVNULL, stderr=STDOUT) 
 else:
     print("Invalid Mode")
-if int(args.debug) == 0:
-        subprocess.Popen("find . -type f -name \"*.c\" -delete", env=env, shell=True)
-        subprocess.Popen("find . -type f -name \"*.cc\" -delete", env=env, shell=True)
