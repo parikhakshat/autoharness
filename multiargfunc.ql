@@ -12,6 +12,6 @@ Type getParameterBaseType(Parameter p) {
 
 from Function f, Type t, string g 
 where not exists(Parameter p | p = f.getAParameter() | getParameterBaseType(p) instanceof Struct) and
-t = f.getAParameter().getUnspecifiedType() and
+t = f.getAParameter().getType() and
 g = f.getType().toString()
 select f, t, g
