@@ -310,7 +310,7 @@ elif (int(args.mode) == 1):
                subprocess.Popen("clang++ -g -fsanitize=address,undefined,fuzzer -L " + args.output + " -L " +args.library + " -l:" + str((shared_functions["object"][index3])) + " " + args.output + filename +".cc -o " + args.output + filename, env=env, shell=True)
             else:
                env = os.environ.copy()
-               subprocess.Popen("clang++ -g -fsanitize=address,undefined,fuzzer -L " + args.output + " -L " +args.library + " -l:" + str((shared_functions["object"][index3])) + " " + args.output + filename +".cc -o " + args.output + filename, env=env, shell=True, stdout=DEVNULL, stderr=STDOUT)
+               subprocess.Popen("clang++ -g -fsanitize=address,undefined,fuzzer -L " + args.output + " -L " +args.library + " -l:" + str((shared_functions["object"][index3])) + " " + args.output + filename +".cc -o " + args.output + filename, env=env, shell=True)
     if (int(args.detection) == 1):
         for index4 in range(len(elf_functions["function"])):
             header_section = ""
@@ -396,7 +396,7 @@ elif (int(args.mode) == 1):
                 subprocess.Popen("clang++ -g -fsanitize=address,undefined,fuzzer " + args.flags + " " + args.output + filename +".cc -o " + args.output + filename, env=env, shell=True)
             elif args.flags is not None and int(args.debug) == 0:
                 env = os.environ.copy()
-                subprocess.Popen("clang++ -g -fsanitize=address,undefined,fuzzer " + args.flags + " " + args.output + filename +".c c-o " + args.output + filename, env=env, shell=True, stdout=DEVNULL, stderr=STDOUT)
+                subprocess.Popen("clang++ -g -fsanitize=address,undefined,fuzzer " + args.flags + " " + args.output + filename +".cc -o " + args.output + filename, env=env, shell=True, stdout=DEVNULL, stderr=STDOUT)
             elif args.flags is None and int(args.debug) == 1:
                env = os.environ.copy()
                subprocess.Popen("clang++ -g -fsanitize=address,undefined,fuzzer " + args.output + filename +".cc -o " + args.output + filename, env=env, shell=True)
