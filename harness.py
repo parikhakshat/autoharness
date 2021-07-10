@@ -409,5 +409,5 @@ elif (int(args.mode) == 1):
 else:
     print("Invalid Mode")
 if int(args.debug) == 0:
-        subprocess.Popen("rm *.c", env=env, shell=True)
-        subprocess.Popen("rm *.cc", env=env, shell=True)
+        subprocess.Popen("find . -type f -name \"*.c\" -delete", env=env, shell=True)
+        subprocess.Popen("find . -type f -name \"*.cc\" -delete", env=env, shell=True)
