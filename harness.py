@@ -1,9 +1,6 @@
 import os
 import argparse
 import subprocess
-import time
-import csv
-import glob
 import pandas as pd
 import lief
 from subprocess import DEVNULL, STDOUT
