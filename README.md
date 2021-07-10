@@ -22,7 +22,7 @@ python3 harness.py -L /home/akshat/nginx-1.21.0/objs/ -C /home/akshat/codeql-h/ 
 Results:
 ![image](https://user-images.githubusercontent.com/68412398/125177087-f317e580-e18d-11eb-8497-02ac3dfc67f9.png)
 It is definitely possible to raise the success by further debugging the compilation and adding more header files and more. Note the nginx project does not have any shared objects after compiling. However, this program does have a feature that can convert PIE executables into shared libraries. 
-## Planned Features (in order of progess)
+## Planned Features (in order of progress)
 1. ### Struct Fuzzing
 The current way implemented in the program to fuzz functions with multiple arguments is by using fuzzing data provider. There are some improvements to make in this integration; however, I believe I can incorporate this feature with data structures. A problem which I come across when coding this is with codeql and nested structs. It becomes especially hard without writing multiple queries which vary for every function. In short, this feature needs more work. I was also thinking about a simple solution using protobufs.
 
