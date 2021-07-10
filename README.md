@@ -21,7 +21,7 @@ python3 harness.py -L /home/akshat/nginx-1.21.0/objs/ -C /home/akshat/codeql-h/ 
 ```
 Results:
 ![image](https://user-images.githubusercontent.com/68412398/125177087-f317e580-e18d-11eb-8497-02ac3dfc67f9.png)
-It is definitely possible to raise the success by further debugging the compilation and adding more header files and more.
+It is definitely possible to raise the success by further debugging the compilation and adding more header files and more. Note the nginx project does not have any shared objects after compiling. However, this program does have a feature that can convert PIE executables into shared libraries. 
 ## Planned Features (in order of progess)
 1. ### Struct Fuzzing
 The current way implemented in the program to fuzz functions with multiple arguments is by using fuzzing data provider. There are some improvements to make in this integration; however, I believe I can incorporate this feature with data structures. A problem which I come across when coding this is with codeql and nested structs. It becomes especially hard without writing multiple queries which vary for every function. In short, this feature needs more work. I was also thinking about a simple solution using protobufs.
@@ -34,6 +34,6 @@ I can create a simple program that runs all the harnesses and picks up on any of
 ## Contribution/Bugs
 If you find any bugs with this program, please create an issue. I will try to come up with a fix. Also, if you have any ideas on any new features or how to implement performance upgrades or the current planned features, please create a pull request or an issue with the tag (contribution).
 ## PSA
-This tool generates some false positives. Please first analyze the crashes and see if it is valid bug or if it is just an implementation bug. Also, you can enable the debug mode if some functions are not compiling. This will help you understand if there are some header files that you are missing or any linkage issues.
+This tool generates some false positives. Please first analyze the crashes and see if it is valid bug or if it is just an implementation bug. Also, you can enable the debug mode if some functions are not compiling. This will help you understand if there are some header files that you are missing or any linkage issues. If the project you are working on does not have shared libraries but an executable, make sure to compile the executable in PIE form so that this program can convert it into a shared library.
 ## References
 1. https://lief.quarkslab.com/doc/latest/tutorials/08_elf_bin2lib.html
