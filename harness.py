@@ -44,9 +44,9 @@ if (int(args.mode) == 0):
         if "shared object" in subprocess.run(["file", filename], stdout=subprocess.PIPE).stdout.decode('utf-8'):
             print("Found shared object " + filename)
             shared_objects.append(filename)
-    for x in shared_objects:
-        object_functions["output"].append(subprocess.run(["readelf", "-a",x], stdout=subprocess.PIPE).stdout.decode('utf-8'))
-        object_functions["object"].append(x)
+    for obj in shared_objects:
+        object_functions["output"].append(subprocess.run(["readelf", "-a",obj], stdout=subprocess.PIPE).stdout.decode('utf-8'))
+        object_functions["object"].append(obj)
     data = pd.read_csv(args.output + "onearg.csv")
     total_functions["function"] = list(data.f)
     total_functions["type"] = list(data.t)
@@ -171,9 +171,9 @@ elif (int(args.mode) == 1):
         if "shared object" in subprocess.run(["file", filename], stdout=subprocess.PIPE).stdout.decode('utf-8'):
             print("Found shared object " + filename)
             shared_objects.append(filename)
-    for x in shared_objects:
-        object_functions["output"].append(subprocess.run(["readelf", "-a",x], stdout=subprocess.PIPE).stdout.decode('utf-8'))
-        object_functions["object"].append(x)
+    for obj in shared_objects:
+        object_functions["output"].append(subprocess.run(["readelf", "-a",obj], stdout=subprocess.PIPE).stdout.decode('utf-8'))
+        object_functions["object"].append(obj)
     for index, defe in enumerate(object_functions["output"]):
         for index2, cur in enumerate(total_functions["f"]):
             if (str(cur) in defe):
@@ -185,9 +185,9 @@ elif (int(args.mode) == 1):
     shared_functions={"function":[], "type":[],"object": [],"type_or_loc":[]}
     for i in range(len(defined_functions["f"])):
         if ".so" not in str(defined_functions["object"][i]):
-            elf = lief.parse(str(defined_functions["object"][i]))
+            elf = lief.parse(args.library + str(defined_functions["object"][i]))
             try:
-                addr = elf.get_function_address(args.library + str(defined_functions["f"][i]))
+                addr = elf.get_function_address(str(defined_functions["f"][i]))
             except: 
                 continue
             elf.add_exported_function(addr, str(defined_functions["f"][i]))
@@ -325,7 +325,6 @@ elif (int(args.mode) == 1):
                 for x in header_list:
                     header_section += "#include <fuzzer/FuzzedDataProvider.h>\n#include <stddef.h>\n#include <stdint.h>\n#include <string.h>\n"
                     header_section+= "#include \"" + x + "\"\n\n"
-            		
             stub = ""
             marker = 1
             param = ""
@@ -391,14 +390,13 @@ elif (int(args.mode) == 1):
                 marker+= 1
             param = rreplace(param,', ','',1)
             header_args = rreplace(header_args,', ','',1)
-            main_section = "#include <stdlib.h>\n#include <dlfcn.h>\n\nvoid* library=NULL;\ntypedef " + str(elf_functions["type_or_loc"][index4]) + "(*" + str(elf_functions["function"][index4]) + "_t)(" + header_args + + "void CloseLibrary()\n{\nif(library){\n\tdlclose(library);\n\tlibrary=NULL;\n}\n}\nint LoadLibrary(){\n\tlibrary = dlopen(\"" + args.library + str(elf_functions["object"][index4]) + "\",RTLD_LAZY);\n\tatexit(CloseLibrary);\n\treturn library != NULL;\n}\n);\nextern \"C\" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {\n\tFuzzedDataProvider provider(data, size);\n\t{\n\tLoadLibrary();\n\t" + stub + str(elf_functions["function"][index4]) + "_t " + str(elf_functions["function"][index4]) + "_s = (" + str(elf_functions["function"][index4]) + "_t)dlsym(library,\"" + str(elf_functions["function"][index4]) + "\");\n\t" + str(elf_functions["function"][index4]) + "_s("+ param +");\n\treturn 0;\n}" 
+            main_section = "#include <stdlib.h>\n#include <dlfcn.h>\n\nvoid* library=NULL;\ntypedef " + str(elf_functions["type_or_loc"][index4]) + "(*" + str(elf_functions["function"][index4]) + "_t)(" + header_args + "void CloseLibrary()\n{\nif(library){\n\tdlclose(library);\n\tlibrary=NULL;\n}\n}\nint LoadLibrary(){\n\tlibrary = dlopen(\"" + args.library + str(elf_functions["object"][index4]) + "\",RTLD_LAZY);\n\tatexit(CloseLibrary);\n\treturn library != NULL;\n}\n);\nextern \"C\" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {\n\tFuzzedDataProvider provider(data, size);\n\t{\n\tLoadLibrary();\n\t" + stub + str(elf_functions["function"][index4]) + "_t " + str(elf_functions["function"][index4]) + "_s = (" + str(elf_functions["function"][index4]) + "_t)dlsym(library,\"" + str(elf_functions["function"][index4]) + "\");\n\t" + str(elf_functions["function"][index4]) + "_s(" + param + ");\n\treturn 0;\n}" 
             full_source = header_section + main_section
-            filename = "".join([c for c in str(elf_functions["function"][index3]) if c.isalpha() or c.isdigit() or c==' ']).rstrip()
+            filename = "".join([c for c in str(elf_functions["function"][index4]) if c.isalpha() or c.isdigit() or c==' ']).rstrip()
             f = open(args.output + filename +".cc", "w")
             f.write(full_source)
             if args.flags is not None and int(args.debug) == 1:
                 env = os.environ.copy()
-                print("clang++ -g -fsanitize=address,undefined,fuzzer " + args.flags + " " + args.output + filename +".cc -o " + args.output + filename)
                 subprocess.Popen("clang++ -g -fsanitize=address,undefined,fuzzer " + args.flags + " " + args.output + filename +".cc -o " + args.output + filename, env=env, shell=True)
             elif args.flags is not None and int(args.debug) == 0:
                 env = os.environ.copy()
