@@ -310,7 +310,7 @@ elif (int(args.mode) == 1):
                subprocess.Popen("clang++ -g -fsanitize=address,undefined,fuzzer -L " + args.output + " -L " +args.library + " -l:" + str((shared_functions["object"][index3])) + " " + args.output + filename +".cc -o " + args.output + filename, env=env, shell=True)
             else:
                env = os.environ.copy()
-               subprocess.Popen("clang++ -g -fsanitize=address,undefined,fuzzer -L " + args.output + " -L " +args.library + " -l:" + str((shared_functions["object"][index3])) + " " + args.output + filename +".cc -o " + args.output + filename, env=env, shell=True)
+               subprocess.Popen("clang++ -g -fsanitize=address,undefined,fuzzer -L " + args.output + " -L " +args.library + " -l:" + str((shared_functions["object"][index3])) + " " + args.output + filename +".cc -o " + args.output + filename, env=env, shell=True, stdout=DEVNULL, stderr=STDOUT)
     if (int(args.detection) == 1):
         for index4 in range(len(elf_functions["function"])):
             header_section = ""
