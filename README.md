@@ -4,7 +4,7 @@
 ## What is this tool?
 AutoHarness is a tool that automatically generates fuzzing harnesses for you. This idea stems from a concurrent problem in fuzzing codebases today: large codebases have thousands of functions and pieces of code that can be embedded fairly deep into the library. It is very hard or sometimes even impossible for smart fuzzers to reach that codepath. 
 Even for large fuzzing projects such as oss-fuzz, there are still parts of the codebase that are not covered in fuzzing. Hence, this program tries to alleviate this problem in some capacity as well as provide a tool that security researchers can use to initially test a codebase.
-## Setup
+## Setup/Demonstration
 This program utilizes llvm and clang for libfuzzer, Codeql for finding functions, and python for the general program. This program was tested on Ubuntu 20.04 with llvm 12 and python 3. Here is the initial setup.
 ```bash
 sudo apt-get update;
@@ -13,7 +13,14 @@ pip3 install pandas lief subprocess os argparse ast;
 ```
 Follow the installation procedure for Codeql on https://github.com/github/codeql.
 Make sure to install the CLI tools and the libraries. For my testing, I have stored both the tools and libraries under one folder.
-Finally, clone this repository or download a release. 
+Finally, clone this repository or download a release.
+Here is the program's output after running on nginx with the multiple argument mode set. 
+This is the command I used. 
+```bash
+python3 harness.py -L /home/akshat/nginx-1.21.0/objs/ -C /home/akshat/codeql-h/ -M 1 -O /home/akshat/autoharness/ -D nginx -G 1 -Y 1 -F "-I /home/akshat/nginx-1.21.0/objs -I /home/akshat/nginx-1.21.0/src/core -I /home/akshat/nginx-1.21.0/src/event -I /home/akshat/nginx-1.21.0/src/http -I /home/akshat/nginx-1.21.0/src/mail -I /home/akshat/nginx-1.21.0/src/misc -I /home/akshat/nginx-1.21.0/src/os -I /home/akshat/nginx-1.21.0/src/stream -I /home/akshat/nginx-1.21.0/src/os/unix" -X ngx_config.h,ngx_core.h
+```
+Results:
+
 ## Planned Features (in order of progess)
 1. ### Struct Fuzzing
 The current way implemented in the program to fuzz functions with multiple arguments is by using fuzzing data provider. There are some improvements to make in this integration; however, I believe I can incorporate this feature with data structures. A problem which I come across when coding this is with codeql and nested structs. It becomes especially hard without writing multiple queries which vary for every function. In short, this feature needs more work. I was also thinking about a simple solution using protobufs.
