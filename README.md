@@ -3,7 +3,7 @@
 ***
 ## What is this tool?
 AutoHarness is a tool that automatically generates fuzzing harnesses for you. This idea stems from a concurrent problem in fuzzing codebases today: large codebases have thousands of functions and pieces of code that can be embedded fairly deep into the library. It is very hard or sometimes even impossible for smart fuzzers to reach that codepath. 
-Even for large fuzzing projects such as oss-fuzz, there are still parts of the codebase that are not covered in fuzzing. Hence, this program tries to alleviate this problem in some capacity as well as provide a tool that security researchers can use to initially test a codebase.
+Even for large fuzzing projects such as oss-fuzz, there are still parts of the codebase that are not covered in fuzzing. Hence, this program tries to alleviate this problem in some capacity as well as provide a tool that security researchers can use to initially test a code base. This program only supports code bases which are coded in C and C++. 
 ## Setup/Demonstration
 This program utilizes llvm and clang for libfuzzer, Codeql for finding functions, and python for the general program. This program was tested on Ubuntu 20.04 with llvm 12 and python 3. Here is the initial setup.
 ```bash
