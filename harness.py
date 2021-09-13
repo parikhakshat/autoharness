@@ -4,49 +4,48 @@ import os
 import argparse
 import subprocess
 import pandas as pd
+import re
 import lief
 from subprocess import DEVNULL, STDOUT
 from ast import literal_eval
 
-parser = argparse.ArgumentParser(
-    description="""\
-A program to help you to automatically create fuzzing harnesses.         
-"""
-)
-parser.add_argument(
-    "-L", "--library", help="Specify directory to program's libraries", required=True
-)
-parser.add_argument(
-    "-C", "--ql", help="Specify directory of codeql modules, database, and binary", required=True
-)
-parser.add_argument("-D", "--database", help="Specify Codeql database", required=True)
-parser.add_argument(
-    "-M",
-    "--mode",
-    help="Specify 0 for 1 argument harnesses or 1 for multiple argument harnesses",
-    required=True,
-)
-parser.add_argument("-O", "--output", help="Output directory", required=True)
-parser.add_argument("-F", "--flags", help="Specify compiler flags (include)", required=False)
-parser.add_argument(
-    "-X", "--headers", help="Specify header files (comma seperated)", required=False
-)
-parser.add_argument(
-    "-G", "--debug", help="Specify 0/1 for disabling/enabling debug mode.", required=True
-)
-parser.add_argument(
-    "-Y",
-    "--detection",
-    help="Automatic header detection (0) or Function Definition (1).",
-    required=True,
-)
-args = parser.parse_args()
+import harness_argparser
+import command_builder as cb
 
+DEBUG = False
 
-def rreplace(s, old, new, occurrence):
-    li = s.rsplit(old, occurrence)
-    return new.join(li)
+arg_parser = harness_argparser.create_parser()
+args = arg_parser.parse_args()
 
+# The function "signature" has arguments like "int[8] var" which should be changed
+# into "int var[8]" for the parameters of a harness function.
+def fun_signature_to_params(signature):
+    # Create a list of the separate arguments
+    sig_list = signature.strip(', \t').split(",")
+    # A C++ identifier can be a type or variable name, among other things
+    cpp_identifier = r"[a-zA-Z_][a-zA-Z0-9_]*"
+    # Regex to capture a single argument, with the array-brackets in a separate group to move to the end.
+    arg_regex = r"((?:[a-z]+\s+)*" + cpp_identifier + "\s*\**)\s*(\[\d+\])\s*(" + cpp_identifier + ")"
+    param_list = []
+    for sig_idx, sig in enumerate(sig_list):
+        sig = sig.strip()
+        mygroup = re.match(arg_regex, sig)
+        if mygroup is None:
+            print("no array, just add sig: " + sig)
+            param_list.append(sig)
+        else:
+            print("match, add group")
+            print(mygroup)
+            param_list.append(mygroup[1] + ' ' + mygroup[3] + mygroup[2])
+            print("added!")
+    result = ", ".join(param_list)
+    print(f"result for {signature}: {result}")
+    print("THE END")
+    return result
+
+def rreplace(s):
+    result = "".join(s.rsplit(", ", 1))
+    return result
 
 shared_objects = []
 object_functions = {"output": [], "object": []}
@@ -59,25 +58,10 @@ if int(args.mode) == 0:
     elf_functions = {"function": [], "type": [], "object": [], "type_or_loc": []}
     shared_functions = {"function": [], "type": [], "object": [], "type_or_loc": []}
     if int(args.detection) == 0:
-        subprocess.check_output("cp " + cwd + "/onearglocation.ql " + args.ql, shell=True)
+        # subprocess.check_output("cp " + cwd + "/onearglocation.ql " + args.ql, shell=True)
+        subprocess.check_output(cb.cp_onearglocation_to_ql(args), shell=True)
         subprocess.check_output(
-            "cd "
-            + args.ql
-            + ";"
-            + args.ql
-            + "codeql query run onearglocation.ql -o "
-            + args.output
-            + "onearg.bqrs -d "
-            + args.ql
-            + args.database
-            + ";"
-            + args.ql
-            + "codeql bqrs decode --format=csv "
-            + args.output
-            + "onearg.bqrs -o "
-            + args.output
-            + "onearg.csv",
-            shell=True,
+            shell=True
         )
     elif int(args.detection) == 1:
         subprocess.check_output("cp " + cwd + "/oneargfunc.ql " + args.ql, shell=True)
@@ -474,69 +458,70 @@ if int(args.mode) == 0:
 elif int(args.mode) == 1:
     print("mode = 1")
     func_objects = []
-    if int(args.detection) == 0:
-        print("Detection == 0")
-        subprocess.check_output("cp " + cwd + "/multiarglocation.ql " + args.ql, shell=True)
-        subprocess.check_output(
-            "cd "
-            + args.ql
-            + ";"
-            + args.ql
-            + "codeql query run multiarglocation.ql -o "
-            + args.output
-            + "multiarg.bqrs -d "
-            + args.ql
-            + args.database
-            + ";"
-            + args.ql
-            + "codeql bqrs decode --format=csv "
-            + args.output
-            + "multiarg.bqrs -o "
-            + args.output
-            + "multiarg.csv",
-            shell=True,
-        )
-    elif int(args.detection) == 1:
-        print("Detection == 1")
-        print("cp " + cwd + "/multiargfunc.ql " + args.ql)
-        subprocess.check_output("cp " + cwd + "/multiargfunc.ql " + args.ql, shell=True)
-        print(
-            "cd "
-            + args.ql
-            + ";"
-            + args.ql
-            + "codeql query run multiargfunc.ql -o "
-            + args.output
-            + "multiarg.bqrs -d "
-            + args.ql
-            + args.database
-            + ";"
-            + args.ql
-            + "codeql bqrs decode --format=csv "
-            + args.output
-            + "multiarg.bqrs -o "
-            + args.output
-            + "multiarg.csv"
-        )
-        subprocess.check_output(
-            "cd "
-            + args.ql
-            + ";"
-            + args.ql
-            + "codeql query run multiargfunc.ql -o "
-            + args.output
-            + "multiarg.bqrs -d "
-            + args.ql
-            + args.database
-            + ";"
-            + args.ql
-            + "codeql bqrs decode --format=csv "
-            + args.output
-            + "multiarg.bqrs -o "
-            + args.output
-            + "multiarg.csv",
-            shell=True,
-        )
+    if not DEBUG:
+        if int(args.detection) == 0:
+            print("Detection == 0")
+            subprocess.check_output("cp " + cwd + "/multiarglocation.ql " + args.ql, shell=True)
+            subprocess.check_output(
+                "cd "
+                + args.ql
+                + ";"
+                + args.ql
+                + "codeql query run multiarglocation.ql -o "
+                + args.output
+                + "multiarg.bqrs -d "
+                + args.ql
+                + args.database
+                + ";"
+                + args.ql
+                + "codeql bqrs decode --format=csv "
+                + args.output
+                + "multiarg.bqrs -o "
+                + args.output
+                + "multiarg.csv",
+                shell=True,
+            )
+        elif int(args.detection) == 1:
+            print("Detection == 1")
+            print("cp " + cwd + "/multiargfunc.ql " + args.ql)
+            subprocess.check_output("cp " + cwd + "/multiargfunc.ql " + args.ql, shell=True)
+            print(
+                "cd "
+                + args.ql
+                + ";"
+                + args.ql
+                + "codeql query run multiargfunc.ql -o "
+                + args.output
+                + "multiarg.bqrs -d "
+                + args.ql
+                + args.database
+                + ";"
+                + args.ql
+                + "codeql bqrs decode --format=csv "
+                + args.output
+                + "multiarg.bqrs -o "
+                + args.output
+                + "multiarg.csv"
+            )
+            subprocess.check_output(
+                "cd "
+                + args.ql
+                + ";"
+                + args.ql
+                + "codeql query run multiargfunc.ql -o "
+                + args.output
+                + "multiarg.bqrs -d "
+                + args.ql
+                + args.database
+                + ";"
+                + args.ql
+                + "codeql bqrs decode --format=csv "
+                + args.output
+                + "multiarg.bqrs -o "
+                + args.output
+                + "multiarg.csv",
+                shell=True,
+            )
     print("Try to read from multiarg.csv")
     data = pd.read_csv(args.output + "multiarg.csv")
     print("DATA")
@@ -755,8 +740,8 @@ elif int(args.mode) == 1:
                 else:
                     continue
             marker += 1
-        param = rreplace(param, ", ", "", 1)
-        header_args = rreplace(header_args, ", ", "", 1)
+        param = fun_signature_to_params(param)
+        header_args = fun_signature_to_params(header_args)
         if int(args.detection) == 0:
             main_section = (
                 'extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {\n\tFuzzedDataProvider provider(data, size);\n\t'
@@ -767,11 +752,14 @@ elif int(args.mode) == 1:
                 + ");\nreturn 0;\n}"
             )
         else:
-            print(str(shared_functions["function"][index3]))
-            print(str(shared_functions["type_or_loc"][index3]))
-            print(header_args)
-            if str(shared_functions["function"][index3]) == "SHA256_Transform":
-                exit(1)
+            # print("We are here!@#")
+            # print(str(shared_functions["function"][index3]))
+            # print(str(shared_functions["type_or_loc"][index3]))
+            # print(header_args)
+            if DEBUG:
+                if str(shared_functions["function"][index3]) == "SHA256_Transform":
+                    print("Doing function abs")
+                    exit(1)
             main_section = (
                 str(shared_functions["type_or_loc"][index3])
                 + " "
@@ -1148,8 +1136,8 @@ elif int(args.mode) == 1:
                     else:
                         continue
                 marker += 1
-            param = rreplace(param, ", ", "", 1)
-            header_args = rreplace(header_args, ", ", "", 1)
+            param = fun_signature_to_params(param)
+            header_args = fun_signature_to_params(header_args)
             main_section = (
                 "#include <stdlib.h>\n#include <dlfcn.h>\n\nvoid* library=NULL;\ntypedef "
                 + str(elf_functions["type_or_loc"][index4])
