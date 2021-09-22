@@ -11,8 +11,10 @@ from ast import literal_eval
 
 import harness_argparser
 import command_builder as cb
+import source_builder as sb
 
 DEBUG = False
+SKIP_CODEGEN = True
 
 arg_parser = harness_argparser.create_parser()
 args = arg_parser.parse_args()
@@ -458,70 +460,69 @@ if int(args.mode) == 0:
 elif int(args.mode) == 1:
     print("mode = 1")
     func_objects = []
-    if not DEBUG:
-        if int(args.detection) == 0:
-            print("Detection == 0")
-            subprocess.check_output("cp " + cwd + "/multiarglocation.ql " + args.ql, shell=True)
-            subprocess.check_output(
-                "cd "
-                + args.ql
-                + ";"
-                + args.ql
-                + "codeql query run multiarglocation.ql -o "
-                + args.output
-                + "multiarg.bqrs -d "
-                + args.ql
-                + args.database
-                + ";"
-                + args.ql
-                + "codeql bqrs decode --format=csv "
-                + args.output
-                + "multiarg.bqrs -o "
-                + args.output
-                + "multiarg.csv",
-                shell=True,
-            )
-        elif int(args.detection) == 1:
-            print("Detection == 1")
-            print("cp " + cwd + "/multiargfunc.ql " + args.ql)
-            subprocess.check_output("cp " + cwd + "/multiargfunc.ql " + args.ql, shell=True)
-            print(
-                "cd "
-                + args.ql
-                + ";"
-                + args.ql
-                + "codeql query run multiargfunc.ql -o "
-                + args.output
-                + "multiarg.bqrs -d "
-                + args.ql
-                + args.database
-                + ";"
-                + args.ql
-                + "codeql bqrs decode --format=csv "
-                + args.output
-                + "multiarg.bqrs -o "
-                + args.output
-                + "multiarg.csv"
-            )
-            subprocess.check_output(
-                "cd "
-                + args.ql
-                + ";"
-                + args.ql
-                + "codeql query run multiargfunc.ql -o "
-                + args.output
-                + "multiarg.bqrs -d "
-                + args.ql
-                + args.database
-                + ";"
-                + args.ql
-                + "codeql bqrs decode --format=csv "
-                + args.output
-                + "multiarg.bqrs -o "
-                + args.output
-                + "multiarg.csv",
-                shell=True,
-            )
+    if int(args.detection) == 0:
+        print("Detection == 0")
+        subprocess.check_output("cp " + cwd + "/multiarglocation.ql " + args.ql, shell=True)
+        subprocess.check_output(
+            "cd "
+            + args.ql
+            + ";"
+            + args.ql
+            + "codeql query run multiarglocation.ql -o "
+            + args.output
+            + "multiarg.bqrs -d "
+            + args.ql
+            + args.database
+            + ";"
+            + args.ql
+            + "codeql bqrs decode --format=csv "
+            + args.output
+            + "multiarg.bqrs -o "
+            + args.output
+            + "multiarg.csv",
+            shell=True,
+        )
+    elif int(args.detection) == 1:
+        print("Detection == 1")
+        print("cp " + cwd + "/multiargfunc.ql " + args.ql)
+        subprocess.check_output("cp " + cwd + "/multiargfunc.ql " + args.ql, shell=True)
+        print(
+            "cd "
+            + args.ql
+            + ";"
+            + args.ql
+            + "codeql query run multiargfunc.ql -o "
+            + args.output
+            + "multiarg.bqrs -d "
+            + args.ql
+            + args.database
+            + ";"
+            + args.ql
+            + "codeql bqrs decode --format=csv "
+            + args.output
+            + "multiarg.bqrs -o "
+            + args.output
+            + "multiarg.csv"
+        )
+        subprocess.check_output(
+            "cd "
+            + args.ql
+            + ";"
+            + args.ql
+            + "codeql query run multiargfunc.ql -o "
+            + args.output
+            + "multiarg.bqrs -d "
+            + args.ql
+            + args.database
+            + ";"
+            + args.ql
+            + "codeql bqrs decode --format=csv "
+            + args.output
+            + "multiarg.bqrs -o "
+            + args.output
+            + "multiarg.csv",
+            shell=True,
+        )
     print("Try to read from multiarg.csv")
     data = pd.read_csv(args.output + "multiarg.csv")
     print("DATA")
@@ -531,17 +532,20 @@ elif int(args.mode) == 1:
     print(total_functions)
     os.chdir(args.library)
     defined_functions = pd.DataFrame(columns=["f", "t", "g", "object"])
+    # Identify shared objects
     for filename in os.listdir(args.library):
         if "shared object" in subprocess.run(
             ["file", filename], stdout=subprocess.PIPE
         ).stdout.decode("utf-8"):
             print("Found shared object " + filename)
             shared_objects.append(filename)
+    # Create dictionary with readelf info for shared objects
     for obj in shared_objects:
         object_functions["output"].append(
             subprocess.run(["readelf", "-a", obj], stdout=subprocess.PIPE).stdout.decode("utf-8")
         )
         object_functions["object"].append(obj)
+    # Get function names from shared objects
     for index, defe in enumerate(object_functions["output"]):
         for index2, cur in enumerate(total_functions["f"]):
             if str(cur) in defe:
@@ -553,6 +557,8 @@ elif int(args.mode) == 1:
     shared_functions = {"function": [], "type": [], "object": [], "type_or_loc": []}
     for i in range(len(defined_functions["f"])):
         if ".so" not in str(defined_functions["object"][i]):
+            print("Not a .so, do lief-magic to create one! - but exit for now, I have no idea when this gets used.")
+            exit()
             elf = lief.parse(args.library + str(defined_functions["object"][i]))
             try:
                 addr = elf.get_function_address(str(defined_functions["f"][i]))
@@ -572,217 +578,221 @@ elif int(args.mode) == 1:
             shared_functions["object"].append(str(defined_functions["object"][i]))
             shared_functions["type_or_loc"].append(str(defined_functions["g"][i]))
     for index3 in range(len(shared_functions["function"])):
-        header_section = ""
-        if not args.headers:
+        print("Processing function ", end='')
+        print(shared_functions["function"][index3])
+        if not SKIP_CODEGEN:
+            header_section = ""
+            if not args.headers:
+                if int(args.detection) == 0:
+                    header_section += (
+                        "#include <fuzzer/FuzzedDataProvider.h>\n#include <stddef.h>\n#include <stdint.h>\n#include <string.h>\n"
+                        + '#include "'
+                        + os.path.basename(shared_functions["type_or_loc"][index3])
+                        + '"\n\n'
+                    )
+                else:
+                    header_section += "#include <fuzzer/FuzzedDataProvider.h>\n#include <stddef.h>\n#include <stdint.h>\n#include <string.h>\n"
+            else:
+                header_list = args.headers.split(",")
+                header_section += "#include <fuzzer/FuzzedDataProvider.h>\n#include <stddef.h>\n#include <stdint.h>\n#include <string.h>\n"
+                for x in header_list:
+                    header_section += '#include "' + x + '"\n\n'
+            stub = ""
+            marker = 1
+            param = ""
+            header_args = ""
+            print("Shared functions type: ", end='')
+            print(shared_functions["type"][index3])
+            for ty in literal_eval(shared_functions["type"][index3]):
+                if ty.count("*") == 1:
+                    if ("long" in ty or "int" in ty or "short" in ty and "long double" not in ty) or (
+                        "char" in ty or "string" in ty
+                    ):
+                        stub += (
+                            "auto data"
+                            + str(marker)
+                            + "= provider.ConsumeIntegral<"
+                            + ty.replace("*", "")
+                            + ">();\n"
+                            + ty.replace("*", "")
+                            + "*pointer"
+                            + str(marker)
+                            + " = &data"
+                            + str(marker)
+                            + ";\n"
+                        )
+                        param += "pointer" + str(marker) + ", "
+                        header_args += ty + "pointer" + str(marker) + ", "
+                    elif "float" in ty or "double" in ty:
+                        stub += (
+                            "auto data"
+                            + str(marker)
+                            + "= provider.ConsumeFloatingPoint<"
+                            + ty.replace("*", "")
+                            + ">();\n"
+                            + ty.replace("*", "")
+                            + "*pointer"
+                            + str(marker)
+                            + " = &data"
+                            + str(marker)
+                            + ";\n"
+                        )
+                        param += "pointer" + str(marker) + ", "
+                        header_args += ty + "pointer" + str(marker) + ", "
+                    elif "bool" in ty:
+                        stub += (
+                            "auto data"
+                            + str(marker)
+                            + "= provider.ConsumeBool();\n"
+                            + ty
+                            + "pointer"
+                            + str(marker)
+                            + " = &data"
+                            + str(marker)
+                            + ";\n"
+                        )
+                        param += "pointer" + str(marker) + ", "
+                        header_args += ty + "pointer" + str(marker) + ", "
+                    else:
+                        continue
+                elif ty.count("*") == 2:
+                    if ("long" in ty or "int" in ty or "short" in ty and "long double" not in ty) or (
+                        "char" in ty or "string" in ty
+                    ):
+                        stub += (
+                            "auto data"
+                            + str(marker)
+                            + "= provider.ConsumeIntegral<"
+                            + ty.replace("*", "")
+                            + ">();\n"
+                            + ty.replace("*", "")
+                            + "*pointer"
+                            + str(marker)
+                            + " = &data"
+                            + str(marker)
+                            + ";\n"
+                            + ty.replace("*", "")
+                            + "**doublepointer"
+                            + str(marker)
+                            + " = &pointer"
+                            + str(marker)
+                            + ";\n"
+                        )
+                        param += "doublepointer" + str(marker) + ", "
+                        header_args += ty + "doublepointer" + str(marker) + ", "
+                    elif "float" in ty or "double" in ty:
+                        stub += (
+                            "auto data"
+                            + str(marker)
+                            + "= provider.ConsumeFloatingPoint<"
+                            + ty.replace("*", "")
+                            + ">();\n"
+                            + ty.replace("*", "")
+                            + "*pointer"
+                            + str(marker)
+                            + " = &data"
+                            + str(marker)
+                            + ";\n"
+                            + ty.replace("*", "")
+                            + "**doublepointer"
+                            + str(marker)
+                            + " = &pointer"
+                            + str(marker)
+                            + ";\n"
+                        )
+                        param += "doublepointer" + str(marker) + ", "
+                        header_args += ty + "doublepointer" + str(marker) + ", "
+                    elif "bool" in ty:
+                        stub += (
+                            "auto data"
+                            + str(marker)
+                            + "= provider.ConsumeBool();\n"
+                            + ty.replace("*", "")
+                            + "*pointer"
+                            + str(marker)
+                            + " = &data"
+                            + str(marker)
+                            + ";\n"
+                            + ty.replace("*", "")
+                            + "**doublepointer"
+                            + str(marker)
+                            + " = &pointer"
+                            + str(marker)
+                            + ";\n"
+                        )
+                        param += "doublepointer" + str(marker) + ", "
+                        header_args += ty + "doublepointer" + str(marker) + ", "
+                    else:
+                        continue
+                else:
+                    if ("long" in ty or "int" in ty or "short" in ty and "long double" not in ty) or (
+                        "char" in ty or "string" in ty
+                    ):
+                        stub += (
+                            "auto data" + str(marker) + "= provider.ConsumeIntegral<" + ty + ">();\n"
+                        )
+                        param += "data" + str(marker) + ", "
+                        header_args += ty + " data" + str(marker) + ", "
+                    elif "float" in ty or "double" in ty:
+                        stub += (
+                            "auto data"
+                            + str(marker)
+                            + "= provider.ConsumeFloatingPoint<"
+                            + ty
+                            + ">();\n"
+                        )
+                        param += "data" + str(marker) + ", "
+                        header_args += ty + " data" + str(marker) + ", "
+                    elif "bool" in ty:
+                        stub += "auto data" + str(marker) + "= provider.ConsumeBool();\n"
+                        param += "data" + str(marker) + ", "
+                        header_args += ty + " data" + str(marker) + ", "
+                    else:
+                        continue
+                marker += 1
+            param = fun_signature_to_params(param)
+            header_args = fun_signature_to_params(header_args)
             if int(args.detection) == 0:
-                header_section += (
-                    "#include <fuzzer/FuzzedDataProvider.h>\n#include <stddef.h>\n#include <stdint.h>\n#include <string.h>\n"
-                    + '#include "'
-                    + os.path.basename(shared_functions["type_or_loc"][index3])
-                    + '"\n\n'
+                main_section = (
+                    'extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {\n\tFuzzedDataProvider provider(data, size);\n\t'
+                    + stub
+                    + str(shared_functions["function"][index3])
+                    + "("
+                    + param
+                    + ");\nreturn 0;\n}"
                 )
             else:
-                header_section += "#include <fuzzer/FuzzedDataProvider.h>\n#include <stddef.h>\n#include <stdint.h>\n#include <string.h>\n"
-        else:
-            header_list = args.headers.split(",")
-            header_section += "#include <fuzzer/FuzzedDataProvider.h>\n#include <stddef.h>\n#include <stdint.h>\n#include <string.h>\n"
-            for x in header_list:
-                header_section += '#include "' + x + '"\n\n'
-        stub = ""
-        marker = 1
-        param = ""
-        header_args = ""
-        print(shared_functions["type"][index3])
-        for ty in literal_eval(shared_functions["type"][index3]):
-            if ty.count("*") == 1:
-                if ("long" in ty or "int" in ty or "short" in ty and "long double" not in ty) or (
-                    "char" in ty or "string" in ty
-                ):
-                    stub += (
-                        "auto data"
-                        + str(marker)
-                        + "= provider.ConsumeIntegral<"
-                        + ty.replace("*", "")
-                        + ">();\n"
-                        + ty.replace("*", "")
-                        + "*pointer"
-                        + str(marker)
-                        + " = &data"
-                        + str(marker)
-                        + ";\n"
-                    )
-                    param += "pointer" + str(marker) + ", "
-                    header_args += ty + "pointer" + str(marker) + ", "
-                elif "float" in ty or "double" in ty:
-                    stub += (
-                        "auto data"
-                        + str(marker)
-                        + "= provider.ConsumeFloatingPoint<"
-                        + ty.replace("*", "")
-                        + ">();\n"
-                        + ty.replace("*", "")
-                        + "*pointer"
-                        + str(marker)
-                        + " = &data"
-                        + str(marker)
-                        + ";\n"
-                    )
-                    param += "pointer" + str(marker) + ", "
-                    header_args += ty + "pointer" + str(marker) + ", "
-                elif "bool" in ty:
-                    stub += (
-                        "auto data"
-                        + str(marker)
-                        + "= provider.ConsumeBool();\n"
-                        + ty
-                        + "pointer"
-                        + str(marker)
-                        + " = &data"
-                        + str(marker)
-                        + ";\n"
-                    )
-                    param += "pointer" + str(marker) + ", "
-                    header_args += ty + "pointer" + str(marker) + ", "
-                else:
-                    continue
-            elif ty.count("*") == 2:
-                if ("long" in ty or "int" in ty or "short" in ty and "long double" not in ty) or (
-                    "char" in ty or "string" in ty
-                ):
-                    stub += (
-                        "auto data"
-                        + str(marker)
-                        + "= provider.ConsumeIntegral<"
-                        + ty.replace("*", "")
-                        + ">();\n"
-                        + ty.replace("*", "")
-                        + "*pointer"
-                        + str(marker)
-                        + " = &data"
-                        + str(marker)
-                        + ";\n"
-                        + ty.replace("*", "")
-                        + "**doublepointer"
-                        + str(marker)
-                        + " = &pointer"
-                        + str(marker)
-                        + ";\n"
-                    )
-                    param += "doublepointer" + str(marker) + ", "
-                    header_args += ty + "doublepointer" + str(marker) + ", "
-                elif "float" in ty or "double" in ty:
-                    stub += (
-                        "auto data"
-                        + str(marker)
-                        + "= provider.ConsumeFloatingPoint<"
-                        + ty.replace("*", "")
-                        + ">();\n"
-                        + ty.replace("*", "")
-                        + "*pointer"
-                        + str(marker)
-                        + " = &data"
-                        + str(marker)
-                        + ";\n"
-                        + ty.replace("*", "")
-                        + "**doublepointer"
-                        + str(marker)
-                        + " = &pointer"
-                        + str(marker)
-                        + ";\n"
-                    )
-                    param += "doublepointer" + str(marker) + ", "
-                    header_args += ty + "doublepointer" + str(marker) + ", "
-                elif "bool" in ty:
-                    stub += (
-                        "auto data"
-                        + str(marker)
-                        + "= provider.ConsumeBool();\n"
-                        + ty.replace("*", "")
-                        + "*pointer"
-                        + str(marker)
-                        + " = &data"
-                        + str(marker)
-                        + ";\n"
-                        + ty.replace("*", "")
-                        + "**doublepointer"
-                        + str(marker)
-                        + " = &pointer"
-                        + str(marker)
-                        + ";\n"
-                    )
-                    param += "doublepointer" + str(marker) + ", "
-                    header_args += ty + "doublepointer" + str(marker) + ", "
-                else:
-                    continue
-            else:
-                if ("long" in ty or "int" in ty or "short" in ty and "long double" not in ty) or (
-                    "char" in ty or "string" in ty
-                ):
-                    stub += (
-                        "auto data" + str(marker) + "= provider.ConsumeIntegral<" + ty + ">();\n"
-                    )
-                    param += "data" + str(marker) + ", "
-                    header_args += ty + " data" + str(marker) + ", "
-                elif "float" in ty or "double" in ty:
-                    stub += (
-                        "auto data"
-                        + str(marker)
-                        + "= provider.ConsumeFloatingPoint<"
-                        + ty
-                        + ">();\n"
-                    )
-                    param += "data" + str(marker) + ", "
-                    header_args += ty + " data" + str(marker) + ", "
-                elif "bool" in ty:
-                    stub += "auto data" + str(marker) + "= provider.ConsumeBool();\n"
-                    param += "data" + str(marker) + ", "
-                    header_args += ty + " data" + str(marker) + ", "
-                else:
-                    continue
-            marker += 1
-        param = fun_signature_to_params(param)
-        header_args = fun_signature_to_params(header_args)
-        if int(args.detection) == 0:
-            main_section = (
-                'extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {\n\tFuzzedDataProvider provider(data, size);\n\t'
-                + stub
-                + str(shared_functions["function"][index3])
-                + "("
-                + param
-                + ");\nreturn 0;\n}"
-            )
-        else:
-            # print("We are here!@#")
-            # print(str(shared_functions["function"][index3]))
-            # print(str(shared_functions["type_or_loc"][index3]))
-            # print(header_args)
-            if DEBUG:
-                if str(shared_functions["function"][index3]) == "SHA256_Transform":
-                    print("Doing function abs")
-                    exit(1)
-            main_section = (
-                str(shared_functions["type_or_loc"][index3])
-                + " "
-                + str(shared_functions["function"][index3])
-                + "("
-                + header_args
-                + ');\n\nextern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {\n\tFuzzedDataProvider provider(data, size);\n\t'
-                + stub
-                + str(shared_functions["function"][index3])
-                + "("
-                + param
-                + ");\nreturn 0;\n}"
-            )
-        full_source = header_section + main_section
-        filename = "".join(
-            [
-                c
-                for c in str(shared_functions["function"][index3])
-                if c.isalpha() or c.isdigit() or c == " "
-            ]
-        ).rstrip()
-        f = open(args.output + filename + ".cc", "w")
-        f.write(full_source)
+                # print("We are here!@#")
+                # print(str(shared_functions["function"][index3]))
+                # print(str(shared_functions["type_or_loc"][index3]))
+                # print(header_args)
+                if DEBUG:
+                    if str(shared_functions["function"][index3]) == "SHA256_Transform":
+                        print("Doing function abs")
+                        exit(1)
+                main_section = (
+                    str(shared_functions["type_or_loc"][index3])
+                    + " "
+                    + str(shared_functions["function"][index3])
+                    + "("
+                    + header_args
+                    + ');\n\nextern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {\n\tFuzzedDataProvider provider(data, size);\n\t'
+                    + stub
+                    + str(shared_functions["function"][index3])
+                    + "("
+                    + param
+                    + ");\nreturn 0;\n}"
+                )
+            full_source = header_section + main_section
+            filename = "".join(
+                [
+                    c
+                    for c in str(shared_functions["function"][index3])
+                    if c.isalpha() or c.isdigit() or c == " "
+                ]
+            ).rstrip()
+            f = open(args.output + filename + ".cc", "w")
+            f.write(full_source)
         if int(args.detection) == 0:
             if args.flags is not None and int(args.debug) == 1:
                 env = os.environ.copy()
@@ -890,344 +900,308 @@ elif int(args.mode) == 1:
                     stdout=DEVNULL,
                     stderr=STDOUT,
                 )
-        else:
-            if args.flags is not None and int(args.debug) == 1:
-                env = os.environ.copy()
-                subprocess.Popen(
-                    "clang++ -g -fsanitize=address,undefined,fuzzer "
-                    + args.flags
-                    + " -L "
-                    + args.output
-                    + " -L "
-                    + args.library
-                    + " -l:"
-                    + str((shared_functions["object"][index3]))
-                    + " "
-                    + args.output
-                    + filename
-                    + ".cc -o "
-                    + args.output
-                    + filename,
-                    env=env,
-                    shell=True,
-                )
-            elif args.flags is not None and int(args.debug) == 0:
-                env = os.environ.copy()
-                subprocess.Popen(
-                    "clang++ -g -fsanitize=address,undefined,fuzzer "
-                    + args.flags
-                    + " -L "
-                    + args.output
-                    + " -L "
-                    + args.library
-                    + " -l:"
-                    + str((shared_functions["object"][index3]))
-                    + " "
-                    + args.output
-                    + filename
-                    + ".cc -o "
-                    + args.output
-                    + filename,
-                    env=env,
-                    shell=True,
-                    stdout=DEVNULL,
-                    stderr=STDOUT,
-                )
-            elif args.flags is None and int(args.debug) == 1:
-                env = os.environ.copy()
-                subprocess.Popen(
-                    "clang++ -g -fsanitize=address,undefined,fuzzer -L "
-                    + args.output
-                    + " -L "
-                    + args.library
-                    + " -l:"
-                    + str((shared_functions["object"][index3]))
-                    + " "
-                    + args.output
-                    + filename
-                    + ".cc -o "
-                    + args.output
-                    + filename,
-                    env=env,
-                    shell=True,
-                )
-            else:
-                env = os.environ.copy()
-                subprocess.Popen(
-                    "clang++ -g -fsanitize=address,undefined,fuzzer -L "
-                    + args.output
-                    + " -L "
-                    + args.library
-                    + " -l:"
-                    + str((shared_functions["object"][index3]))
-                    + " "
-                    + args.output
-                    + filename
-                    + ".cc -o "
-                    + args.output
-                    + filename,
-                    env=env,
-                    shell=True,
-                    stdout=DEVNULL,
-                    stderr=STDOUT,
-                )
-    if int(args.detection) == 1:
-        for index4 in range(len(elf_functions["function"])):
-            header_section = ""
-            if not args.headers:
-                header_section += "#include <fuzzer/FuzzedDataProvider.h>\n#include <stddef.h>\n#include <stdint.h>\n#include <string.h>\n"
-            else:
-                header_list = args.headers.split(",")
-                header_section += "#include <fuzzer/FuzzedDataProvider.h>\n#include <stddef.h>\n#include <stdint.h>\n#include <string.h>\n"
-                for x in header_list:
-                    header_section += '#include "' + x + '"\n'
-            stub = ""
-            marker = 1
-            param = ""
-            header_args = ""
-            for ty in literal_eval(elf_functions["type"][index4]):
-                if ty.count("*") == 1:
-                    if (
-                        "long" in ty or "int" in ty or "short" in ty and "long double" not in ty
-                    ) or ("char" in ty or "string" in ty):
-                        stub += (
-                            "auto data"
-                            + str(marker)
-                            + "= provider.ConsumeIntegral<"
-                            + ty.replace("*", "")
-                            + ">();\n"
-                            + ty.replace("*", "")
-                            + "*pointer"
-                            + str(marker)
-                            + " = &data"
-                            + str(marker)
-                            + ";\n"
-                        )
-                        param += "pointer" + str(marker) + ", "
-                        header_args += ty + "pointer" + str(marker) + ", "
-                    elif "float" in ty or "double" in ty:
-                        stub += (
-                            "auto data"
-                            + str(marker)
-                            + "= provider.ConsumeFloatingPoint<"
-                            + ty.replace("*", "")
-                            + ">();\n"
-                            + ty.replace("*", "")
-                            + "*pointer"
-                            + str(marker)
-                            + " = &data"
-                            + str(marker)
-                            + ";\n"
-                        )
-                        param += "pointer" + str(marker) + ", "
-                        header_args += ty + "pointer" + str(marker) + ", "
-                    elif "bool" in ty:
-                        stub += (
-                            "auto data"
-                            + str(marker)
-                            + "= provider.ConsumeBool();\n"
-                            + ty
-                            + "pointer"
-                            + str(marker)
-                            + " = &data"
-                            + str(marker)
-                            + ";\n"
-                        )
-                        param += "pointer" + str(marker) + ", "
-                        header_args += ty + "pointer" + str(marker) + ", "
-                    else:
-                        continue
-                elif ty.count("*") == 2:
-                    if (
-                        "long" in ty or "int" in ty or "short" in ty and "long double" not in ty
-                    ) or ("char" in ty or "string" in ty):
-                        stub += (
-                            "auto data"
-                            + str(marker)
-                            + "= provider.ConsumeIntegral<"
-                            + ty.replace("*", "")
-                            + ">();\n"
-                            + ty.replace("*", "")
-                            + "*pointer"
-                            + str(marker)
-                            + " = &data"
-                            + str(marker)
-                            + ";\n"
-                            + ty.replace("*", "")
-                            + "**doublepointer"
-                            + str(marker)
-                            + " = &pointer"
-                            + str(marker)
-                            + ";\n"
-                        )
-                        param += "doublepointer" + str(marker) + ", "
-                        header_args += ty + "doublepointer" + str(marker) + ", "
-                    elif "float" in ty or "double" in ty:
-                        stub += (
-                            "auto data"
-                            + str(marker)
-                            + "= provider.ConsumeFloatingPoint<"
-                            + ty.replace("*", "")
-                            + ">();\n"
-                            + ty.replace("*", "")
-                            + "*pointer"
-                            + str(marker)
-                            + " = &data"
-                            + str(marker)
-                            + ";\n"
-                            + ty.replace("*", "")
-                            + "**doublepointer"
-                            + str(marker)
-                            + " = &pointer"
-                            + str(marker)
-                            + ";\n"
-                        )
-                        param += "doublepointer" + str(marker) + ", "
-                        header_args += ty + "doublepointer" + str(marker) + ", "
-                    elif "bool" in ty:
-                        stub += (
-                            "auto data"
-                            + str(marker)
-                            + "= provider.ConsumeBool();\n"
-                            + ty.replace("*", "")
-                            + "*pointer"
-                            + str(marker)
-                            + " = &data"
-                            + str(marker)
-                            + ";\n"
-                            + ty.replace("*", "")
-                            + "**doublepointer"
-                            + str(marker)
-                            + " = &pointer"
-                            + str(marker)
-                            + ";\n"
-                        )
-                        param += "doublepointer" + str(marker) + ", "
-                        header_args += ty + "doublepointer" + str(marker) + ", "
-                    else:
-                        continue
+        else:  # args.detection != 0
+                if args.flags is not None and int(args.debug) == 1:
+                    env = os.environ.copy()
+                    subprocess.Popen(
+                        "clang++ -g -fsanitize=address,undefined,fuzzer "
+                        + args.flags
+                        + " -L "
+                        + args.output
+                        + " -L "
+                        + args.library
+                        + " -l:"
+                        + str((shared_functions["object"][index3]))
+                        + " "
+                        + args.output
+                        + filename
+                        + ".cc -o "
+                        + args.output
+                        + filename,
+                        env=env,
+                        shell=True,
+                    )
+                elif args.flags is not None and int(args.debug) == 0:
+                    env = os.environ.copy()
+                    subprocess.Popen(
+                        "clang++ -g -fsanitize=address,undefined,fuzzer "
+                        + args.flags
+                        + " -L "
+                        + args.output
+                        + " -L "
+                        + args.library
+                        + " -l:"
+                        + str((shared_functions["object"][index3]))
+                        + " "
+                        + args.output
+                        + filename
+                        + ".cc -o "
+                        + args.output
+                        + filename,
+                        env=env,
+                        shell=True,
+                        stdout=DEVNULL,
+                        stderr=STDOUT,
+                    )
+                elif args.flags is None and int(args.debug) == 1:
+                    env = os.environ.copy()
+                    subprocess.Popen(
+                        "clang++ -g -fsanitize=address,undefined,fuzzer -L "
+                        + args.output
+                        + " -L "
+                        + args.library
+                        + " -l:"
+                        + str((shared_functions["object"][index3]))
+                        + " "
+                        + args.output
+                        + filename
+                        + ".cc -o "
+                        + args.output
+                        + filename,
+                        env=env,
+                        shell=True,
+                    )
                 else:
-                    if (
-                        "long" in ty or "int" in ty or "short" in ty and "long double" not in ty
-                    ) or ("char" in ty or "string" in ty):
-                        stub += (
-                            "auto data"
-                            + str(marker)
-                            + "= provider.ConsumeIntegral<"
-                            + ty
-                            + ">();\n"
-                        )
-                        param += "data" + str(marker) + ", "
-                        header_args += ty + " data" + str(marker) + ", "
-                    elif "float" in ty or "double" in ty:
-                        stub += (
-                            "auto data"
-                            + str(marker)
-                            + "= provider.ConsumeFloatingPoint<"
-                            + ty
-                            + ">();\n"
-                        )
-                        param += "data" + str(marker) + ", "
-                        header_args += ty + " data" + str(marker) + ", "
-                    elif "bool" in ty:
-                        stub += "auto data" + str(marker) + "= provider.ConsumeBool();\n"
-                        param += "data" + str(marker) + ", "
-                        header_args += ty + " data" + str(marker) + ", "
+                    env = os.environ.copy()
+                    subprocess.Popen(
+                        "clang++ -g -fsanitize=address,undefined,fuzzer -L "
+                        + args.output
+                        + " -L "
+                        + args.library
+                        + " -l:"
+                        + str((shared_functions["object"][index3]))
+                        + " "
+                        + args.output
+                        + filename
+                        + ".cc -o "
+                        + args.output
+                        + filename,
+                        env=env,
+                        shell=True,
+                        stdout=DEVNULL,
+                        stderr=STDOUT,
+                    )
+        print("break to avoid other functions for the debugging time...")
+        break
+    if int(args.detection) == 1:
+        print("args.detection is 1")
+        for index4 in range(len(elf_functions["function"])):
+            if not SKIP_CODEGEN:
+                header_section = ""
+                if not args.headers:
+                    header_section += "#include <fuzzer/FuzzedDataProvider.h>\n#include <stddef.h>\n#include <stdint.h>\n#include <string.h>\n"
+                else:
+                    header_list = args.headers.split(",")
+                    header_section += "#include <fuzzer/FuzzedDataProvider.h>\n#include <stddef.h>\n#include <stdint.h>\n#include <string.h>\n"
+                    for x in header_list:
+                        header_section += '#include "' + x + '"\n'
+                stub = ""
+                marker = 1
+                param = ""
+                header_args = ""
+                for ty in literal_eval(elf_functions["type"][index4]):
+                    if ty.count("*") == 1:
+                        if (
+                            "long" in ty or "int" in ty or "short" in ty and "long double" not in ty
+                        ) or ("char" in ty or "string" in ty):
+                            stub += (
+                                "auto data"
+                                + str(marker)
+                                + "= provider.ConsumeIntegral<"
+                                + ty.replace("*", "")
+                                + ">();\n"
+                                + ty.replace("*", "")
+                                + "*pointer"
+                                + str(marker)
+                                + " = &data"
+                                + str(marker)
+                                + ";\n"
+                            )
+                            param += "pointer" + str(marker) + ", "
+                            header_args += ty + "pointer" + str(marker) + ", "
+                        elif "float" in ty or "double" in ty:
+                            stub += (
+                                "auto data"
+                                + str(marker)
+                                + "= provider.ConsumeFloatingPoint<"
+                                + ty.replace("*", "")
+                                + ">();\n"
+                                + ty.replace("*", "")
+                                + "*pointer"
+                                + str(marker)
+                                + " = &data"
+                                + str(marker)
+                                + ";\n"
+                            )
+                            param += "pointer" + str(marker) + ", "
+                            header_args += ty + "pointer" + str(marker) + ", "
+                        elif "bool" in ty:
+                            stub += (
+                                "auto data"
+                                + str(marker)
+                                + "= provider.ConsumeBool();\n"
+                                + ty
+                                + "pointer"
+                                + str(marker)
+                                + " = &data"
+                                + str(marker)
+                                + ";\n"
+                            )
+                            param += "pointer" + str(marker) + ", "
+                            header_args += ty + "pointer" + str(marker) + ", "
+                        else:
+                            continue
+                    elif ty.count("*") == 2:
+                        if (
+                            "long" in ty or "int" in ty or "short" in ty and "long double" not in ty
+                        ) or ("char" in ty or "string" in ty):
+                            stub += (
+                                "auto data"
+                                + str(marker)
+                                + "= provider.ConsumeIntegral<"
+                                + ty.replace("*", "")
+                                + ">();\n"
+                                + ty.replace("*", "")
+                                + "*pointer"
+                                + str(marker)
+                                + " = &data"
+                                + str(marker)
+                                + ";\n"
+                                + ty.replace("*", "")
+                                + "**doublepointer"
+                                + str(marker)
+                                + " = &pointer"
+                                + str(marker)
+                                + ";\n"
+                            )
+                            param += "doublepointer" + str(marker) + ", "
+                            header_args += ty + "doublepointer" + str(marker) + ", "
+                        elif "float" in ty or "double" in ty:
+                            stub += (
+                                "auto data"
+                                + str(marker)
+                                + "= provider.ConsumeFloatingPoint<"
+                                + ty.replace("*", "")
+                                + ">();\n"
+                                + ty.replace("*", "")
+                                + "*pointer"
+                                + str(marker)
+                                + " = &data"
+                                + str(marker)
+                                + ";\n"
+                                + ty.replace("*", "")
+                                + "**doublepointer"
+                                + str(marker)
+                                + " = &pointer"
+                                + str(marker)
+                                + ";\n"
+                            )
+                            param += "doublepointer" + str(marker) + ", "
+                            header_args += ty + "doublepointer" + str(marker) + ", "
+                        elif "bool" in ty:
+                            stub += (
+                                "auto data"
+                                + str(marker)
+                                + "= provider.ConsumeBool();\n"
+                                + ty.replace("*", "")
+                                + "*pointer"
+                                + str(marker)
+                                + " = &data"
+                                + str(marker)
+                                + ";\n"
+                                + ty.replace("*", "")
+                                + "**doublepointer"
+                                + str(marker)
+                                + " = &pointer"
+                                + str(marker)
+                                + ";\n"
+                            )
+                            param += "doublepointer" + str(marker) + ", "
+                            header_args += ty + "doublepointer" + str(marker) + ", "
+                        else:
+                            continue
                     else:
-                        continue
-                marker += 1
-            param = fun_signature_to_params(param)
-            header_args = fun_signature_to_params(header_args)
-            main_section = (
-                "#include <stdlib.h>\n#include <dlfcn.h>\n\nvoid* library=NULL;\ntypedef "
-                + str(elf_functions["type_or_loc"][index4])
-                + "(*"
-                + str(elf_functions["function"][index4])
-                + "_t)("
-                + header_args
-                + ');\nvoid CloseLibrary()\n{\nif(library){\n\tdlclose(library);\n\tlibrary=NULL;\n}\n}\nint LoadLibrary(){\n\tlibrary = dlopen("'
-                + args.library
-                + str(elf_functions["object"][index4])
-                + '",RTLD_LAZY);\n\tatexit(CloseLibrary);\n\treturn library != NULL;\n}\nextern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {\n\tFuzzedDataProvider provider(data, size);\n\t\n\tLoadLibrary();\n\t'
-                + stub
-                + str(elf_functions["function"][index4])
-                + "_t "
-                + str(elf_functions["function"][index4])
-                + "_s = ("
-                + str(elf_functions["function"][index4])
-                + '_t)dlsym(library,"'
-                + str(elf_functions["function"][index4])
-                + '");\n\t'
-                + str(elf_functions["function"][index4])
-                + "_s("
-                + param
-                + ");\n\treturn 0;\n}"
+                        if (
+                            "long" in ty or "int" in ty or "short" in ty and "long double" not in ty
+                        ) or ("char" in ty or "string" in ty):
+                            stub += (
+                                "auto data"
+                                + str(marker)
+                                + "= provider.ConsumeIntegral<"
+                                + ty
+                                + ">();\n"
+                            )
+                            param += "data" + str(marker) + ", "
+                            header_args += ty + " data" + str(marker) + ", "
+                        elif "float" in ty or "double" in ty:
+                            stub += (
+                                "auto data"
+                                + str(marker)
+                                + "= provider.ConsumeFloatingPoint<"
+                                + ty
+                                + ">();\n"
+                            )
+                            param += "data" + str(marker) + ", "
+                            header_args += ty + " data" + str(marker) + ", "
+                        elif "bool" in ty:
+                            stub += "auto data" + str(marker) + "= provider.ConsumeBool();\n"
+                            param += "data" + str(marker) + ", "
+                            header_args += ty + " data" + str(marker) + ", "
+                        else:
+                            continue
+                    marker += 1
+                param = fun_signature_to_params(param)
+                header_args = fun_signature_to_params(header_args)
+                main_section = (
+                    "#include <stdlib.h>\n#include <dlfcn.h>\n\nvoid* library=NULL;\ntypedef "
+                    + str(elf_functions["type_or_loc"][index4])
+                    + "(*"
+                    + str(elf_functions["function"][index4])
+                    + "_t)("
+                    + header_args
+                    + ');\nvoid CloseLibrary()\n{\nif(library){\n\tdlclose(library);\n\tlibrary=NULL;\n}\n}\nint LoadLibrary(){\n\tlibrary = dlopen("'
+                    + args.library
+                    + str(elf_functions["object"][index4])
+                    + '",RTLD_LAZY);\n\tatexit(CloseLibrary);\n\treturn library != NULL;\n}\nextern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {\n\tFuzzedDataProvider provider(data, size);\n\t\n\tLoadLibrary();\n\t'
+                    + stub
+                    + str(elf_functions["function"][index4])
+                    + "_t "
+                    + str(elf_functions["function"][index4])
+                    + "_s = ("
+                    + str(elf_functions["function"][index4])
+                    + '_t)dlsym(library,"'
+                    + str(elf_functions["function"][index4])
+                    + '");\n\t'
+                    + str(elf_functions["function"][index4])
+                    + "_s("
+                    + param
+                    + ");\n\treturn 0;\n}"
+                )
+                full_source = header_section + main_section
+                filename = "".join(
+                    [
+                        c
+                        for c in str(elf_functions["function"][index4])
+                        if c.isalpha() or c.isdigit() or c == " "
+                    ]
+                ).rstrip()
+                f = open(args.output + filename + ".cc", "w")
+                f.write(full_source)
+            print("compiling!")
+            env = os.environ.copy()
+            compile_command = cb.compile_command(args, filename)
+            if int(args.debug) == 1:
+                compile_stdout = STDOUT
+                compile_stderr = None
+            elif int(args.debug) == 0:
+                compile_stdout = DEVNULL
+                compile_stderr = STDOUT
+            subprocess.Popen(
+                compile_command,
+                env=env,
+                shell=True,
+                stdout = compile_stdout,
+                stderr = compile_stderr
             )
-            full_source = header_section + main_section
-            filename = "".join(
-                [
-                    c
-                    for c in str(elf_functions["function"][index4])
-                    if c.isalpha() or c.isdigit() or c == " "
-                ]
-            ).rstrip()
-            f = open(args.output + filename + ".cc", "w")
-            f.write(full_source)
-            if args.flags is not None and int(args.debug) == 1:
-                env = os.environ.copy()
-                subprocess.Popen(
-                    "clang++ -g -fsanitize=address,undefined,fuzzer "
-                    + args.flags
-                    + " "
-                    + args.output
-                    + filename
-                    + ".cc -o "
-                    + args.output
-                    + filename,
-                    env=env,
-                    shell=True,
-                )
-            elif args.flags is not None and int(args.debug) == 0:
-                env = os.environ.copy()
-                subprocess.Popen(
-                    "clang++ -g -fsanitize=address,undefined,fuzzer "
-                    + args.flags
-                    + " "
-                    + args.output
-                    + filename
-                    + ".cc -o "
-                    + args.output
-                    + filename,
-                    env=env,
-                    shell=True,
-                    stdout=DEVNULL,
-                    stderr=STDOUT,
-                )
-            elif args.flags is None and int(args.debug) == 1:
-                env = os.environ.copy()
-                subprocess.Popen(
-                    "clang++ -g -fsanitize=address,undefined,fuzzer "
-                    + args.output
-                    + filename
-                    + ".cc -o "
-                    + args.output
-                    + filename,
-                    env=env,
-                    shell=True,
-                )
-            else:
-                env = os.environ.copy()
-                subprocess.Popen(
-                    "clang++ -g -fsanitize=address,undefined,fuzzer "
-                    + args.output
-                    + filename
-                    + ".cc -o "
-                    + args.output
-                    + filename,
-                    env=env,
-                    shell=True,
-                    stdout=DEVNULL,
-                    stderr=STDOUT,
-                )
 else:
     print("Invalid Mode")

@@ -26,3 +26,14 @@ def one_arg(args):
     +args.output \
     +"onearg.csv"
     return command
+
+def compile_command(args, filename):
+    command = "clang++ -g -fsanitize=address,undefined,fuzzer "
+    if args.flags is not None:
+        command += args.flags + " "
+    command += args.output \
+            + filename \
+            + ".cc -o " \
+            + args.output \
+            + filename
+    return command
