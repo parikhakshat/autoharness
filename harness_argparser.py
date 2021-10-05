@@ -9,7 +9,7 @@ def create_parser():
     """
     )
     parser.add_argument(
-        "-L", "--library", help="Specify directory to program's libraries", required=True
+        "-L", "--library-dir", help="Specify directory to program's libraries", required=True
     )
     parser.add_argument(
         "-C", "--ql", help="Specify directory of codeql modules, database, and binary", required=True

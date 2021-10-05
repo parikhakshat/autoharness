@@ -14,7 +14,7 @@ import command_builder as cb
 import source_builder as sb
 
 DEBUG = False
-SKIP_CODEGEN = True
+SKIP_CODEGEN = False
 
 arg_parser = harness_argparser.create_parser()
 args = arg_parser.parse_args()
@@ -52,9 +52,19 @@ def rreplace(s):
 shared_objects = []
 object_functions = {"output": [], "object": []}
 cwd = os.getcwd()
+env = os.environ.copy()
+
+if int(args.debug) == 1:
+    print(f"Setting stdout to None")
+    compile_stdout = None
+    print(f"Setting stderr to None")
+    compile_stderr = None
+elif int(args.debug) == 0:
+    compile_stdout = DEVNULL
+    compile_stderr = STDOUT
 
 if int(args.mode) == 0:
-    print("mode = 0")
+    print("mode = 0 (use clang?)")
     total_functions = {"function": [], "type": [], "type_or_loc": []}
     defined_functions = {"function": [], "type": [], "object": [], "type_or_loc": []}
     elf_functions = {"function": [], "type": [], "object": [], "type_or_loc": []}
@@ -86,8 +96,8 @@ if int(args.mode) == 0:
             + "onearg.csv",
             shell=True,
         )
-    os.chdir(args.library)
-    for filename in os.listdir(args.library):
+    os.chdir(args.library_dir)
+    for filename in os.listdir(args.library_dir):
         if "shared object" in subprocess.run(
             ["file", filename], stdout=subprocess.PIPE
         ).stdout.decode("utf-8"):
@@ -111,7 +121,7 @@ if int(args.mode) == 0:
                 defined_functions["type_or_loc"].append(total_functions["type_or_loc"][index2])
     for i in range(len(defined_functions["function"])):
         if ".so" not in str(defined_functions["object"][i]):
-            elf = lief.parse(args.library + str(defined_functions["object"][i]))
+            elf = lief.parse(args.library_dir + str(defined_functions["object"][i]))
             try:
                 addr = elf.get_function_address(str(defined_functions["function"][i]))
             except:
@@ -177,176 +187,18 @@ if int(args.mode) == 0:
         ).rstrip()
         f = open(args.output + filename + ".c", "w")
         f.write(full_source)
-        if int(args.detection) == 0:
-            if args.flags is not None and int(args.debug) == 1:
-                env = os.environ.copy()
-                subprocess.Popen(
-                    "clang -g -fsanitize=address,undefined,fuzzer "
-                    + args.flags
-                    + " -L "
-                    + args.output
-                    + " -L "
-                    + args.library
-                    + " -I"
-                    + os.path.dirname(shared_functions["type_or_loc"][index3])
-                    + " -l:"
-                    + str((shared_functions["object"][index3]))
-                    + " "
-                    + args.output
-                    + filename
-                    + ".c -o "
-                    + args.output
-                    + filename,
-                    env=env,
-                    shell=True,
-                )
-            elif args.flags is not None and int(args.debug) == 0:
-                env = os.environ.copy()
-                subprocess.Popen(
-                    "clang -g -fsanitize=address,undefined,fuzzer "
-                    + args.flags
-                    + " -L "
-                    + args.output
-                    + " -L "
-                    + args.library
-                    + " -I"
-                    + os.path.dirname(shared_functions["type_or_loc"][index3])
-                    + " -l:"
-                    + str((shared_functions["object"][index3]))
-                    + " "
-                    + args.output
-                    + filename
-                    + ".c -o "
-                    + args.output
-                    + filename,
-                    env=env,
-                    shell=True,
-                    stdout=DEVNULL,
-                    stderr=STDOUT,
-                )
-            elif args.flags is None and int(args.debug) == 1:
-                env = os.environ.copy()
-                subprocess.Popen(
-                    "clang -g -fsanitize=address,undefined,fuzzer -L "
-                    + args.output
-                    + " -L "
-                    + args.library
-                    + " -I"
-                    + os.path.dirname(shared_functions["type_or_loc"][index3])
-                    + " -l:"
-                    + str((shared_functions["object"][index3]))
-                    + " "
-                    + args.output
-                    + filename
-                    + ".c -o "
-                    + args.output
-                    + filename,
-                    env=env,
-                    shell=True,
-                )
-            else:
-                env = os.environ.copy()
-                subprocess.Popen(
-                    "clang -g -fsanitize=address,undefined,fuzzer -L "
-                    + args.output
-                    + " -L "
-                    + args.library
-                    + " -I"
-                    + os.path.dirname(shared_functions["type_or_loc"][index3])
-                    + " -l:"
-                    + str((shared_functions["object"][index3]))
-                    + " "
-                    + args.output
-                    + filename
-                    + ".c -o "
-                    + args.output
-                    + filename,
-                    env=env,
-                    shell=True,
-                    stdout=DEVNULL,
-                    stderr=STDOUT,
-                )
-        else:
-            if args.flags is not None and int(args.debug) == 1:
-                env = os.environ.copy()
-                subprocess.Popen(
-                    "clang -g -fsanitize=address,undefined,fuzzer "
-                    + args.flags
-                    + " -L "
-                    + args.output
-                    + " -L "
-                    + args.library
-                    + " -l:"
-                    + str((shared_functions["object"][index3]))
-                    + " "
-                    + args.output
-                    + filename
-                    + ".c -o "
-                    + args.output
-                    + filename,
-                    env=env,
-                    shell=True,
-                )
-            elif args.flags is not None and int(args.debug) == 0:
-                env = os.environ.copy()
-                subprocess.Popen(
-                    "clang -g -fsanitize=address,undefined,fuzzer "
-                    + args.flags
-                    + " -L "
-                    + args.output
-                    + " -L "
-                    + args.library
-                    + " -l:"
-                    + str((shared_functions["object"][index3]))
-                    + " "
-                    + args.output
-                    + filename
-                    + ".c -o "
-                    + args.output
-                    + filename,
-                    env=env,
-                    shell=True,
-                    stdout=DEVNULL,
-                    stderr=STDOUT,
-                )
-            elif args.flags is None and int(args.debug) == 1:
-                env = os.environ.copy()
-                subprocess.Popen(
-                    "clang -g -fsanitize=address,undefined,fuzzer -L "
-                    + args.output
-                    + " -L "
-                    + args.library
-                    + " -l:"
-                    + str((shared_functions["object"][index3]))
-                    + " "
-                    + args.output
-                    + filename
-                    + ".c -o "
-                    + args.output
-                    + filename,
-                    env=env,
-                    shell=True,
-                )
-            else:
-                env = os.environ.copy()
-                subprocess.Popen(
-                    "clang -g -fsanitize=address,undefined,fuzzer -L "
-                    + args.output
-                    + " -L "
-                    + args.library
-                    + " -l:"
-                    + str((shared_functions["object"][index3]))
-                    + " "
-                    + args.output
-                    + filename
-                    + ".c -o "
-                    + args.output
-                    + filename,
-                    env=env,
-                    shell=True,
-                    stdout=DEVNULL,
-                    stderr=STDOUT,
-                )
+        library_name = str((shared_functions["object"][index3]))
+        headers_dir = None
+        if args.detection == 0:
+            headers_dir = os.path.dirname(shared_functions["type_or_loc"][index3])
+        compile_command = cb.clang_command(args, filename, library_name, headers_dir)
+        subprocess.Popen(
+            compile_command,
+            env=env,
+            shell=True,
+            stdout=DEVNULL,
+            stderr=STDOUT,
+        )
     if int(args.detection) == 1:
         for index4 in range(len(elf_functions["function"])):
             header_section = ""
@@ -365,7 +217,7 @@ if int(args.mode) == 0:
                 + str(elf_functions["type"][index4])
                 + ");\n"
                 + 'void CloseLibrary()\n{\nif(library){\n\tdlclose(library);\n\tlibrary=NULL;\n}\n}\nint LoadLibrary(){\n\tlibrary = dlopen("'
-                + args.library
+                + args.library_dir
                 + str(elf_functions["object"][index4])
                 + '",RTLD_LAZY);\n\tatexit(CloseLibrary);\n\treturn library != NULL;\n}\nint LLVMFuzzerTestOneInput('
                 + str(elf_functions["type"][index4])
@@ -391,74 +243,17 @@ if int(args.mode) == 0:
             ).rstrip()
             f = open(args.output + filename + ".c", "w")
             f.write(full_source)
-            if args.flags is not None and int(args.debug) == 1:
-                env = os.environ.copy()
-                print(
-                    "clang -g -fsanitize=address,undefined,fuzzer "
-                    + args.flags
-                    + " "
-                    + args.output
-                    + filename
-                    + ".c -o "
-                    + args.output
-                    + filename
-                )
-                subprocess.Popen(
-                    "clang -g -fsanitize=address,undefined,fuzzer "
-                    + args.flags
-                    + " "
-                    + args.output
-                    + filename
-                    + ".c -o "
-                    + args.output
-                    + filename,
-                    env=env,
-                    shell=True,
-                )
-            elif args.flags is not None and int(args.debug) == 0:
-                env = os.environ.copy()
-                subprocess.Popen(
-                    "clang -g -fsanitize=address,undefined,fuzzer "
-                    + args.flags
-                    + " "
-                    + args.output
-                    + filename
-                    + ".c -o "
-                    + args.output
-                    + filename,
-                    env=env,
-                    shell=True,
-                    stdout=DEVNULL,
-                    stderr=STDOUT,
-                )
-            elif args.flags is None and int(args.debug) == 1:
-                env = os.environ.copy()
-                subprocess.Popen(
-                    "clang -g -fsanitize=address,undefined,fuzzer "
-                    + args.output
-                    + filename
-                    + ".c -o "
-                    + args.output
-                    + filename,
-                    env=env,
-                    shell=True,
-                )
-            else:
-                env = os.environ.copy()
-                subprocess.Popen(
-                    "clang -g -fsanitize=address,undefined,fuzzer "
-                    + args.output
-                    + filename
-                    + ".c -o "
-                    + args.output
-                    + filename,
-                    env=env,
-                    shell=True,
-                    stdout=DEVNULL,
-                    stderr=STDOUT,
-                )
+            print("WARNING: clang command does not include -L flag before args.output, possibly a bug?")
+            compile_command = cb.clang_command_2(args, filename)
+            subprocess.Popen(
+                compile_command,
+                env=env,
+                shell=True,
+                stdout=DEVNULL,
+                stderr=STDOUT,
+            )
 elif int(args.mode) == 1:
-    print("mode = 1")
+    print("mode = 1 (use clang++?)")
     func_objects = []
     if int(args.detection) == 0:
         print("Detection == 0")
@@ -530,10 +325,10 @@ elif int(args.mode) == 1:
     print("THAT WAS THE DATA")
     total_functions = data.drop_duplicates().groupby(["f", "g"], as_index=False)["t"].agg(list)
     print(total_functions)
-    os.chdir(args.library)
+    os.chdir(args.library_dir)
     defined_functions = pd.DataFrame(columns=["f", "t", "g", "object"])
     # Identify shared objects
-    for filename in os.listdir(args.library):
+    for filename in os.listdir(args.library_dir):
         if "shared object" in subprocess.run(
             ["file", filename], stdout=subprocess.PIPE
         ).stdout.decode("utf-8"):
@@ -559,7 +354,7 @@ elif int(args.mode) == 1:
         if ".so" not in str(defined_functions["object"][i]):
             print("Not a .so, do lief-magic to create one! - but exit for now, I have no idea when this gets used.")
             exit()
-            elf = lief.parse(args.library + str(defined_functions["object"][i]))
+            elf = lief.parse(args.library_dir + str(defined_functions["object"][i]))
             try:
                 addr = elf.get_function_address(str(defined_functions["f"][i]))
             except:
@@ -791,198 +586,24 @@ elif int(args.mode) == 1:
                     if c.isalpha() or c.isdigit() or c == " "
                 ]
             ).rstrip()
+            print("FILENAME = " + filename)
             f = open(args.output + filename + ".cc", "w")
             f.write(full_source)
-        if int(args.detection) == 0:
-            if args.flags is not None and int(args.debug) == 1:
-                env = os.environ.copy()
-                print(
-                    "clang++ -g -fsanitize=address,undefined,fuzzer "
-                    + args.flags
-                    + " -L "
-                    + args.output
-                    + " -L "
-                    + args.library
-                    + " -I"
-                    + os.path.dirname(shared_functions["type_or_loc"][index3])
-                    + " -l:"
-                    + str((shared_functions["object"][index3]))
-                    + " "
-                    + args.output
-                    + filename
-                    + ".cc -o "
-                    + args.output
-                    + filename
-                )
-                subprocess.Popen(
-                    "clang++ -g -fsanitize=address,undefined,fuzzer "
-                    + args.flags
-                    + " -L "
-                    + args.output
-                    + " -L "
-                    + args.library
-                    + " -I"
-                    + os.path.dirname(shared_functions["type_or_loc"][index3])
-                    + " -l:"
-                    + str((shared_functions["object"][index3]))
-                    + " "
-                    + args.output
-                    + filename
-                    + ".cc -o "
-                    + args.output
-                    + filename,
-                    env=env,
-                    shell=True,
-                )
-            elif args.flags is not None and int(args.debug) == 0:
-                env = os.environ.copy()
-                subprocess.Popen(
-                    "clang++ -g -fsanitize=address,undefined,fuzzer "
-                    + args.flags
-                    + " -L "
-                    + args.output
-                    + " -L "
-                    + args.library
-                    + " -I"
-                    + os.path.dirname(shared_functions["type_or_loc"][index3])
-                    + " -l:"
-                    + str((shared_functions["object"][index3]))
-                    + " "
-                    + args.output
-                    + filename
-                    + ".cc -o "
-                    + args.output
-                    + filename,
-                    env=env,
-                    shell=True,
-                    stdout=DEVNULL,
-                    stderr=STDOUT,
-                )
-            elif args.flags is None and int(args.debug) == 1:
-                env = os.environ.copy()
-                subprocess.Popen(
-                    "clang++ -g -fsanitize=address,undefined,fuzzer -L "
-                    + args.output
-                    + " -L "
-                    + args.library
-                    + " -I"
-                    + os.path.dirname(shared_functions["type_or_loc"][index3])
-                    + " -l:"
-                    + str((shared_functions["object"][index3]))
-                    + " "
-                    + args.output
-                    + filename
-                    + ".cc -o "
-                    + args.output
-                    + filename,
-                    env=env,
-                    shell=True,
-                )
-            else:
-                env = os.environ.copy()
-                subprocess.Popen(
-                    "clang++ -g -fsanitize=address,undefined,fuzzer -L "
-                    + args.output
-                    + " -L "
-                    + args.library
-                    + " -I"
-                    + os.path.dirname(shared_functions["type_or_loc"][index3])
-                    + " -l:"
-                    + str((shared_functions["object"][index3]))
-                    + " "
-                    + args.output
-                    + filename
-                    + ".cc -o "
-                    + args.output
-                    + filename,
-                    env=env,
-                    shell=True,
-                    stdout=DEVNULL,
-                    stderr=STDOUT,
-                )
-        else:  # args.detection != 0
-                if args.flags is not None and int(args.debug) == 1:
-                    env = os.environ.copy()
-                    subprocess.Popen(
-                        "clang++ -g -fsanitize=address,undefined,fuzzer "
-                        + args.flags
-                        + " -L "
-                        + args.output
-                        + " -L "
-                        + args.library
-                        + " -l:"
-                        + str((shared_functions["object"][index3]))
-                        + " "
-                        + args.output
-                        + filename
-                        + ".cc -o "
-                        + args.output
-                        + filename,
-                        env=env,
-                        shell=True,
-                    )
-                elif args.flags is not None and int(args.debug) == 0:
-                    env = os.environ.copy()
-                    subprocess.Popen(
-                        "clang++ -g -fsanitize=address,undefined,fuzzer "
-                        + args.flags
-                        + " -L "
-                        + args.output
-                        + " -L "
-                        + args.library
-                        + " -l:"
-                        + str((shared_functions["object"][index3]))
-                        + " "
-                        + args.output
-                        + filename
-                        + ".cc -o "
-                        + args.output
-                        + filename,
-                        env=env,
-                        shell=True,
-                        stdout=DEVNULL,
-                        stderr=STDOUT,
-                    )
-                elif args.flags is None and int(args.debug) == 1:
-                    env = os.environ.copy()
-                    subprocess.Popen(
-                        "clang++ -g -fsanitize=address,undefined,fuzzer -L "
-                        + args.output
-                        + " -L "
-                        + args.library
-                        + " -l:"
-                        + str((shared_functions["object"][index3]))
-                        + " "
-                        + args.output
-                        + filename
-                        + ".cc -o "
-                        + args.output
-                        + filename,
-                        env=env,
-                        shell=True,
-                    )
-                else:
-                    env = os.environ.copy()
-                    subprocess.Popen(
-                        "clang++ -g -fsanitize=address,undefined,fuzzer -L "
-                        + args.output
-                        + " -L "
-                        + args.library
-                        + " -l:"
-                        + str((shared_functions["object"][index3]))
-                        + " "
-                        + args.output
-                        + filename
-                        + ".cc -o "
-                        + args.output
-                        + filename,
-                        env=env,
-                        shell=True,
-                        stdout=DEVNULL,
-                        stderr=STDOUT,
-                    )
-        print("break to avoid other functions for the debugging time...")
-        break
+        library_name = str((shared_functions["object"][index3])) 
+        headers_dir = os.path.dirname(shared_functions["type_or_loc"][index3])
+        print("compiling 1!")
+        compile_command = cb.clangpp_command(args, filename, library_name, headers_dir)
+        print(compile_command)
+        print(compile_stderr, compile_stdout)
+        subprocess.Popen(
+            compile_command,
+            env=env,
+            shell=True,
+            # stdout = compile_stdout
+            stderr = compile_stderr
+        )
+        print("STOP FOR NOW")
+        exit(1)
     if int(args.detection) == 1:
         print("args.detection is 1")
         for index4 in range(len(elf_functions["function"])):
@@ -1160,7 +781,7 @@ elif int(args.mode) == 1:
                     + "_t)("
                     + header_args
                     + ');\nvoid CloseLibrary()\n{\nif(library){\n\tdlclose(library);\n\tlibrary=NULL;\n}\n}\nint LoadLibrary(){\n\tlibrary = dlopen("'
-                    + args.library
+                    + args.library_dir
                     + str(elf_functions["object"][index4])
                     + '",RTLD_LAZY);\n\tatexit(CloseLibrary);\n\treturn library != NULL;\n}\nextern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {\n\tFuzzedDataProvider provider(data, size);\n\t\n\tLoadLibrary();\n\t'
                     + stub
@@ -1187,15 +808,9 @@ elif int(args.mode) == 1:
                 ).rstrip()
                 f = open(args.output + filename + ".cc", "w")
                 f.write(full_source)
-            print("compiling!")
-            env = os.environ.copy()
-            compile_command = cb.compile_command(args, filename)
-            if int(args.debug) == 1:
-                compile_stdout = STDOUT
-                compile_stderr = None
-            elif int(args.debug) == 0:
-                compile_stdout = DEVNULL
-                compile_stderr = STDOUT
+            print("compiling 2!")
+            compile_command = cb.clangpp_command(args, filename)
+            print(compile_command)
             subprocess.Popen(
                 compile_command,
                 env=env,
