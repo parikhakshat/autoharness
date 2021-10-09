@@ -57,7 +57,7 @@ def clangpp_command(args, filename, library_name=None, headers_dir=None):
     command = "clang++ -g -fsanitize=address,undefined,fuzzer "
     if args.flags is not None:
         command += args.flags + " "
-    command += args.output
+    # command += args.output
     # Check consistency of library-arguments
     if (args.library_dir is not None and library_name is None) or (
         args.library_dir is None and library_name is not None
