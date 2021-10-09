@@ -12,7 +12,7 @@ from ast import literal_eval
 
 import harness_argparser
 import command_builder as cb
-import source_builder as sb
+# import source_builder as sb  # TODO: factor out code into a separate file/module
 
 DEBUG = False
 SKIP_CODEGEN = False
