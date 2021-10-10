@@ -10,8 +10,8 @@ Type getParameterBaseType(Parameter p) {
   result = getParameterTypeElement(p) and not result instanceof PointerType
 }
 
-from Function f, Type t, string g, int param_idx
+from Function f, Type t, string g 
 where not exists(Parameter p | p = f.getAParameter() | getParameterBaseType(p) instanceof Struct) and
-t = f.getParameter(param_idx).getType() and
+t = f.getAParameter().getType() and
 g = f.getType().toString()
-select f, t, g, param_idx
+select f, t, g
