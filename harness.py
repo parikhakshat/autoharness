@@ -12,7 +12,6 @@ from ast import literal_eval
 
 import harness_argparser
 import command_builder as cb
-# import source_builder as sb  # TODO: factor out code into a separate file/module
 
 DEBUG = False
 SKIP_CODEGEN = False
@@ -356,10 +355,7 @@ elif int(args.mode) == 1:
     good_fun_count = 0
     bad_fun_count = 0
     for index3 in range(len(shared_functions["function"])):
-        # if shared_functions["function"][index3] != "crypto_sign_edwards25519sha512batch_open":
-        #     continue
         print("Processing function ", end='')
-        # print(shared_functions["function"][index3])
         bad_fun = False
         if not SKIP_CODEGEN:
             header_section = ""
@@ -553,11 +549,7 @@ elif int(args.mode) == 1:
                     + param
                     + ");\nreturn 0;\n}"
                 )
-            else:  # args.detection == 1
-                # print("We are here!@#")
-                # print(str(shared_functions["function"][index3]))
-                # print(str(shared_functions["type_or_loc"][index3]))
-                # print(header_args)
+            else:
                 main_section = (
                     str(shared_functions["type_or_loc"][index3])
                     + " "
