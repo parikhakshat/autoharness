@@ -26,7 +26,6 @@ if (int(args.mode) == 0):
     object_functions={"output":[],"object":[]}
     total_functions={"function":[], "type":[],"type_or_loc":[]}
     defined_functions={"function":[], "type":[],"object": [],"type_or_loc":[]}
-    elf_functions={"function":[], "type":[],"object": [],"type_or_loc":[]}
     shared_functions={"function":[], "type":[],"object": [],"type_or_loc":[]}
     cwd = os.getcwd()
     if int(args.detection) == 0:
@@ -66,10 +65,10 @@ if (int(args.mode) == 0):
             elf[lief.ELF.DYNAMIC_TAGS.FLAGS_1].remove(lief.ELF.DYNAMIC_FLAGS_1.PIE) 
             outfile = "lib%s.so" % str(defined_functions["function"][i])
             elf.write(outfile)
-            elf_functions["function"].append(str(defined_functions["function"][i]))
-            elf_functions["type"].append(str(defined_functions["type"][i]))
-            elf_functions["object"].append(outfile)
-            elf_functions["type_or_loc"].append(str(defined_functions["type_or_loc"][i]))
+            shared_functions["function"].append(str(defined_functions["function"][i]))
+            shared_functions["type"].append(str(defined_functions["type"][i]))
+            shared_functions["object"].append(outfile)
+            shared_functions["type_or_loc"].append(str(defined_functions["type_or_loc"][i]))
         else:
             shared_functions["function"].append(str(defined_functions["function"][i]))
             shared_functions["type"].append(str(defined_functions["type"][i]))
@@ -122,7 +121,7 @@ if (int(args.mode) == 0):
                env = os.environ.copy()
                subprocess.Popen("clang -g -fsanitize=address,undefined,fuzzer -L " + args.output + " -L " +args.library + " -l:" + str((shared_functions["object"][index3])) + " " + args.output + filename +".c -o " + args.output + filename, env=env, shell=True, stdout=DEVNULL, stderr=STDOUT)
     if (int(args.detection) == 1):
-        for index4 in range(len(elf_functions["function"])):
+        for index4 in range(len(shared_functions["function"])):
             header_section = ""
             if not args.headers:
                     header_section = ""
@@ -130,9 +129,9 @@ if (int(args.mode) == 0):
                 header_list = args.headers.split(",")
                 for x in header_list:
                     header_section+= "#include \"" + x + "\"\n\n"               
-            main_section = "#include <stdlib.h>\n#include <dlfcn.h>\n\nvoid* library=NULL;\ntypedef " + str(elf_functions["type_or_loc"][index4]) + "(*" + str(elf_functions["function"][index4]) + "_t)(" + str(elf_functions["type"][index4]) + ");\n" + "void CloseLibrary()\n{\nif(library){\n\tdlclose(library);\n\tlibrary=NULL;\n}\n}\nint LoadLibrary(){\n\tlibrary = dlopen(\"" + args.library + str(elf_functions["object"][index4]) + "\",RTLD_LAZY);\n\tatexit(CloseLibrary);\n\treturn library != NULL;\n}\nint LLVMFuzzerTestOneInput(" + str(elf_functions["type"][index4]) + " Data, long Size) {\n\tLoadLibrary();\n\t" + str(elf_functions["function"][index4]) + "_t " + str(elf_functions["function"][index4]) + "_s = (" + str(elf_functions["function"][index4]) + "_t)dlsym(library,\"" + str(elf_functions["function"][index4]) + "\");\n\t" + str(elf_functions["function"][index4]) + "_s(Data);\n\treturn 0;\n}"
+            main_section = "#include <stdlib.h>\n#include <dlfcn.h>\n\nvoid* library=NULL;\ntypedef " + str(shared_functions["type_or_loc"][index4]) + "(*" + str(shared_functions["function"][index4]) + "_t)(" + str(shared_functions["type"][index4]) + ");\n" + "void CloseLibrary()\n{\nif(library){\n\tdlclose(library);\n\tlibrary=NULL;\n}\n}\nint LoadLibrary(){\n\tlibrary = dlopen(\"" + args.library + str(shared_functions["object"][index4]) + "\",RTLD_LAZY);\n\tatexit(CloseLibrary);\n\treturn library != NULL;\n}\nint LLVMFuzzerTestOneInput(" + str(shared_functions["type"][index4]) + " Data, long Size) {\n\tLoadLibrary();\n\t" + str(shared_functions["function"][index4]) + "_t " + str(shared_functions["function"][index4]) + "_s = (" + str(shared_functions["function"][index4]) + "_t)dlsym(library,\"" + str(shared_functions["function"][index4]) + "\");\n\t" + str(shared_functions["function"][index4]) + "_s(Data);\n\treturn 0;\n}"
             full_source = header_section + main_section
-            filename = "".join([c for c in str(elf_functions["function"][index4]) if c.isalpha() or c.isdigit() or c==' ']).rstrip()
+            filename = "".join([c for c in str(shared_functions["function"][index4]) if c.isalpha() or c.isdigit() or c==' ']).rstrip()
             f = open(args.output + filename +".c", "w")
             f.write(full_source)
             if args.flags is not None and int(args.debug) == 1:
@@ -179,7 +178,6 @@ elif (int(args.mode) == 1):
                 defined_functions = defined_functions.append([total_functions.iloc[index2,:]])
     defined_functions["object"] = func_objects
     defined_functions = defined_functions.to_dict(orient='list')
-    elf_functions={"function":[], "type":[],"object": [],"type_or_loc":[]}
     shared_functions={"function":[], "type":[],"object": [],"type_or_loc":[]}
     for i in range(len(defined_functions["f"])):
         if ".so" not in str(defined_functions["object"][i]):
@@ -192,10 +190,10 @@ elif (int(args.mode) == 1):
             elf[lief.ELF.DYNAMIC_TAGS.FLAGS_1].remove(lief.ELF.DYNAMIC_FLAGS_1.PIE) 
             outfile = "lib%s.so" % str(defined_functions["f"][i])
             elf.write(outfile)
-            elf_functions["function"].append(str(defined_functions["f"][i]))
-            elf_functions["type"].append(str(defined_functions["t"][i]))
-            elf_functions["object"].append(outfile)
-            elf_functions["type_or_loc"].append(str(defined_functions["g"][i]))
+            shared_functions["function"].append(str(defined_functions["f"][i]))
+            shared_functions["type"].append(str(defined_functions["t"][i]))
+            shared_functions["object"].append(outfile)
+            shared_functions["type_or_loc"].append(str(defined_functions["g"][i]))
         else:
             shared_functions["function"].append(str(defined_functions["f"][i]))
             shared_functions["type"].append(str(defined_functions["t"][i]))
@@ -314,7 +312,7 @@ elif (int(args.mode) == 1):
                env = os.environ.copy()
                subprocess.Popen("clang++ -g -fsanitize=address,undefined,fuzzer -L " + args.output + " -L " +args.library + " -l:" + str((shared_functions["object"][index3])) + " " + args.output + filename +".cc -o " + args.output + filename, env=env, shell=True, stdout=DEVNULL, stderr=STDOUT)
     if (int(args.detection) == 1):
-        for index4 in range(len(elf_functions["function"])):
+        for index4 in range(len(shared_functions["function"])):
             header_section = ""
             if not args.headers:
                     header_section += "#include <fuzzer/FuzzedDataProvider.h>\n#include <stddef.h>\n#include <stdint.h>\n#include <string.h>\n"            
@@ -327,7 +325,7 @@ elif (int(args.mode) == 1):
             marker = 1
             param = ""
             header_args = ""
-            for ty in literal_eval(elf_functions["type"][index4]):
+            for ty in literal_eval(shared_functions["type"][index4]):
                 if ty.count('*') == 1:
                     if "long" in ty or "int" in ty or "short" in ty and "long double" not in ty:  
                        stub  += "auto data" + str(marker) + "= provider.ConsumeIntegral<" + ty.replace("*", "") + ">();\n" + ty.replace("*", "") + "*pointer"+ str(marker) + " = &data" + str(marker) + ";\n" 
@@ -388,9 +386,9 @@ elif (int(args.mode) == 1):
                 marker+= 1
             param = rreplace(param,', ','',1)
             header_args = rreplace(header_args,', ','',1)
-            main_section = "#include <stdlib.h>\n#include <dlfcn.h>\n\nvoid* library=NULL;\ntypedef " + str(elf_functions["type_or_loc"][index4]) + "(*" + str(elf_functions["function"][index4]) + "_t)(" + header_args + ");\nvoid CloseLibrary()\n{\nif(library){\n\tdlclose(library);\n\tlibrary=NULL;\n}\n}\nint LoadLibrary(){\n\tlibrary = dlopen(\"" + args.library + str(elf_functions["object"][index4]) + "\",RTLD_LAZY);\n\tatexit(CloseLibrary);\n\treturn library != NULL;\n}\nextern \"C\" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {\n\tFuzzedDataProvider provider(data, size);\n\t\n\tLoadLibrary();\n\t" + stub + str(elf_functions["function"][index4]) + "_t " + str(elf_functions["function"][index4]) + "_s = (" + str(elf_functions["function"][index4]) + "_t)dlsym(library,\"" + str(elf_functions["function"][index4]) + "\");\n\t" + str(elf_functions["function"][index4]) + "_s(" + param + ");\n\treturn 0;\n}" 
+            main_section = "#include <stdlib.h>\n#include <dlfcn.h>\n\nvoid* library=NULL;\ntypedef " + str(shared_functions["type_or_loc"][index4]) + "(*" + str(shared_functions["function"][index4]) + "_t)(" + header_args + ");\nvoid CloseLibrary()\n{\nif(library){\n\tdlclose(library);\n\tlibrary=NULL;\n}\n}\nint LoadLibrary(){\n\tlibrary = dlopen(\"" + args.library + str(shared_functions["object"][index4]) + "\",RTLD_LAZY);\n\tatexit(CloseLibrary);\n\treturn library != NULL;\n}\nextern \"C\" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {\n\tFuzzedDataProvider provider(data, size);\n\t\n\tLoadLibrary();\n\t" + stub + str(shared_functions["function"][index4]) + "_t " + str(shared_functions["function"][index4]) + "_s = (" + str(shared_functions["function"][index4]) + "_t)dlsym(library,\"" + str(shared_functions["function"][index4]) + "\");\n\t" + str(shared_functions["function"][index4]) + "_s(" + param + ");\n\treturn 0;\n}" 
             full_source = header_section + main_section
-            filename = "".join([c for c in str(elf_functions["function"][index4]) if c.isalpha() or c.isdigit() or c==' ']).rstrip()
+            filename = "".join([c for c in str(shared_functions["function"][index4]) if c.isalpha() or c.isdigit() or c==' ']).rstrip()
             f = open(args.output + filename +".cc", "w")
             f.write(full_source)
             if args.flags is not None and int(args.debug) == 1:
