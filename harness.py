@@ -36,8 +36,9 @@ if (int(args.mode) == 0):
        subprocess.check_output("cp " + cwd + "/oneargfunc.ql " + args.ql, shell=True)
        subprocess.check_output("cd "+ args.ql + ";" +args.ql+ "codeql query run oneargfunc.ql -o " + args.output + "onearg.bqrs -d " + args.ql + args.database +";" + args.ql + "codeql bqrs decode --format=csv " + args.output + "onearg.bqrs -o " + args.output + "onearg.csv", shell=True)
     os.chdir(args.library)
+    matches = ["shared object","pie executable"]
     for filename in os.listdir(args.library):
-        if "shared object" in subprocess.run(["file", filename], stdout=subprocess.PIPE).stdout.decode('utf-8'):
+        if any(x in subprocess.run(["file", filename], stdout=subprocess.PIPE).stdout.decode('utf-8') for x in matches):
             print("Found shared object " + filename)
             shared_objects.append(filename)
     for obj in shared_objects:
@@ -163,8 +164,9 @@ elif (int(args.mode) == 1):
     print(total_functions)
     os.chdir(args.library)
     defined_functions = pd.DataFrame(columns=["f","t","g","object"])
+    matches = ["shared object","pie executable"]
     for filename in os.listdir(args.library):
-        if "shared object" in subprocess.run(["file", filename], stdout=subprocess.PIPE).stdout.decode('utf-8'):
+        if any(x in subprocess.run(["file", filename], stdout=subprocess.PIPE).stdout.decode('utf-8') for x in matches):
             print("Found shared object " + filename)
             shared_objects.append(filename)
     for obj in shared_objects:
